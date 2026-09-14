@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/bundle.response.schema.json",
+  "title": "BundleResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "description", "request_id"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "maxLength": 99 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "request_id": { "type": "string" }
+  }
+}

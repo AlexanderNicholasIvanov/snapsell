@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/bundle.request.schema.json",
+  "title": "BundleRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items", "bundle_price"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "price"],
+        "properties": {
+          "item": { "$ref": "item.schema.json" },
+          "price": { "type": "number", "minimum": 0, "description": "The individual price the user settled on." }
+        }
+      }
+    },
+    "bundle_price": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Computed on device: sum of item prices times the bundle discount. The LLM writes copy for this number, it does not set it."
+    }
+  }
+}

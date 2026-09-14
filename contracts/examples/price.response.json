@@ -1,0 +1,31 @@
+{
+  "suggested_price": 75,
+  "currency": "USD",
+  "asking_median": 89.99,
+  "asking_low": 64.0,
+  "asking_high": 129.95,
+  "comp_count": 9,
+  "condition_filtered": true,
+  "local_sale_factor": 0.85,
+  "comps": [
+    {
+      "item_id": "v1|123456789012|0",
+      "title": "Apple iPad Air 2 64GB Wi-Fi Space Gray Good Condition",
+      "price": 79.99,
+      "shipping": 10.0,
+      "total": 89.99,
+      "condition": "Good - Refurbished",
+      "url": "https://www.ebay.com/itm/123456789012",
+      "image_url": "https://i.ebayimg.com/images/g/example/s-l225.jpg"
+    }
+  ],
+  "estimated_sold": {
+    "low": 55,
+    "high": 85,
+    "currency": "USD",
+    "source": "llm_estimate",
+    "rationale": "iPad Air 2 units in good condition typically close well below asking on secondary markets."
+  },
+  "search_query": "Apple iPad Air 2 64GB Wi-Fi",
+  "request_id": "req_example_price"
+}

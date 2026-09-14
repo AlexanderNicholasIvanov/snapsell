@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/price.response.schema.json",
+  "title": "PriceQuote",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suggested_price", "currency", "asking_median", "asking_low", "asking_high",
+    "comp_count", "condition_filtered", "local_sale_factor", "comps", "estimated_sold",
+    "search_query", "request_id"
+  ],
+  "properties": {
+    "suggested_price": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "asking_median * local_sale_factor, rounded to a sensible price point. Null when no comps were found."
+    },
+    "currency": { "type": "string", "const": "USD" },
+    "asking_median": { "type": ["number", "null"], "minimum": 0, "description": "Median of (price + shipping) over the comps used." },
+    "asking_low": { "type": ["number", "null"], "minimum": 0 },
+    "asking_high": { "type": ["number", "null"], "minimum": 0 },
+    "comp_count": { "type": "integer", "minimum": 0, "description": "Number of listings the median was computed from." },
+    "condition_filtered": {
+      "type": "boolean",
+      "description": "True when the eBay condition filter produced results. False means the unfiltered fallback was used."
+    },
+    "local_sale_factor": { "type": "number", "exclusiveMinimum": 0, "maximum": 1.5 },
+    "comps": {
+      "type": "array",
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/Comp" },
+      "description": "The listings shown to the user as evidence. A subset of what the median used."
+    },
+    "estimated_sold": {
+      "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/SoldEstimate" } ]
+    },
+    "search_query": { "type": "string", "description": "The query actually sent to eBay." },
+    "request_id": { "type": "string" }
+  },
+  "$defs": {
+    "Comp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "title", "price", "shipping", "total", "condition", "url"],
+      "properties": {
+        "item_id": { "type": "string" },
+        "title": { "type": "string" },
+        "price": { "type": "number", "minimum": 0 },
+        "shipping": { "type": "number", "minimum": 0, "description": "0 when free or unknown." },
+        "total": { "type": "number", "minimum": 0 },
+        "condition": { "type": ["string", "null"], "description": "eBay's condition display name." },
+        "url": { "type": "string", "format": "uri" },
+        "image_url": { "type": ["string", "null"], "format": "uri" }
+      }
+    },
+    "SoldEstimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "high", "currency", "source"],
+      "properties": {
+        "low": { "type": "number", "minimum": 0 },
+        "high": { "type": "number", "minimum": 0 },
+        "currency": { "type": "string", "const": "USD" },
+        "source": {
+          "type": "string",
+          "enum": ["llm_estimate", "ebay_marketplace_insights", "third_party"],
+          "description": "The UI must label llm_estimate as an estimate, not data."
+        },
+        "rationale": { "type": ["string", "null"], "maxLength": 300 }
+      }
+    }
+  }
+}

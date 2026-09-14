@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws everything; this only needs to be a chrome-free window
+         whose system bars match the light/dark setting. Theme.DeviceDefault.DayNight
+         needs API 29, so light/dark is split across values/ and values-night/. -->
+    <style name="Theme.SnapSell" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

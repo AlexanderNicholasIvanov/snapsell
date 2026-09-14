@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/item.schema.json",
+  "title": "Item",
+  "description": "One physical thing the user wants to sell, as identified from a photo and possibly corrected by the user.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "category", "condition", "attributes", "search_query", "confidence"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Short product name a buyer would search for, e.g. 'Apple iPad Air 2 64GB'."
+    },
+    "brand": { "type": ["string", "null"], "maxLength": 60 },
+    "model": { "type": ["string", "null"], "maxLength": 80 },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Free-text category path, e.g. 'Electronics > Tablets'."
+    },
+    "condition": {
+      "type": "string",
+      "enum": ["new", "like_new", "good", "fair", "for_parts"],
+      "description": "Maps to eBay condition IDs on the backend."
+    },
+    "attributes": {
+      "type": "array",
+      "maxItems": 12,
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 },
+      "description": "Notable features visible in the photo: capacity, colour, included accessories."
+    },
+    "search_query": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Keyword query to run against the eBay Browse API."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Model's confidence that name/brand/model are right."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "Visible flaws or uncertainty worth telling the user."
+    }
+  }
+}

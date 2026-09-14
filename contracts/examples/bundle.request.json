@@ -1,0 +1,33 @@
+{
+  "items": [
+    {
+      "item": {
+        "name": "KitchenAid Classic Stand Mixer 4.5 Qt",
+        "brand": "KitchenAid",
+        "model": "K45SS",
+        "category": "Home > Kitchen > Small Appliances",
+        "condition": "good",
+        "attributes": ["white", "4.5 quart", "includes bowl and paddle"],
+        "search_query": "KitchenAid K45SS stand mixer",
+        "confidence": 0.9,
+        "notes": null
+      },
+      "price": 120
+    },
+    {
+      "item": {
+        "name": "Cuisinart 14-Cup Food Processor",
+        "brand": "Cuisinart",
+        "model": "DFP-14BCNY",
+        "category": "Home > Kitchen > Small Appliances",
+        "condition": "good",
+        "attributes": ["brushed stainless", "14 cup"],
+        "search_query": "Cuisinart DFP-14BCNY food processor",
+        "confidence": 0.82,
+        "notes": null
+      },
+      "price": 80
+    }
+  ],
+  "bundle_price": 160
+}

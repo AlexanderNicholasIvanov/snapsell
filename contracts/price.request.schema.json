@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/price.request.schema.json",
+  "title": "PriceRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["item"],
+  "properties": {
+    "item": { "$ref": "item.schema.json" },
+    "local_sale_factor": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1.5,
+      "default": 0.85,
+      "description": "Multiplier applied to the eBay asking median to reflect local, no-shipping sales. User adjustable."
+    }
+  }
+}

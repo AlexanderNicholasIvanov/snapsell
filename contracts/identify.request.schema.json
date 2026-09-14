@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/identify.request.schema.json",
+  "title": "IdentifyRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["image_base64", "media_type"],
+  "properties": {
+    "image_base64": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Base64 (standard alphabet, no newlines) of one item cutout or photo. Keep under 4 MB decoded."
+    },
+    "media_type": { "type": "string", "enum": ["image/jpeg", "image/png", "image/webp"] },
+    "hint": {
+      "type": ["string", "null"],
+      "maxLength": 200,
+      "description": "Optional user-supplied hint, e.g. 'it is a kitchen mixer'."
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/listing.schema.json",
+  "title": "Listing",
+  "description": "A Marketplace listing holding one item (single) or several (bundle). Lives in Room on the phone today; the shape is kept here so a future sync API reuses it unchanged.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "item_ids", "title", "description", "price", "status", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "remote_id": { "type": ["string", "null"], "description": "Null until a sync backend exists." },
+    "kind": { "type": "string", "enum": ["single", "bundle"] },
+    "item_ids": { "type": "array", "minItems": 1, "items": { "type": "string", "format": "uuid" } },
+    "title": { "type": "string", "maxLength": 99 },
+    "description": { "type": "string", "maxLength": 2000 },
+    "price": { "type": "number", "minimum": 0 },
+    "bundle_discount": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1, "description": "Only for bundles. Default 0.8." },
+    "status": { "type": "string", "enum": ["draft", "listed", "skipped", "sold"] },
+    "listed_at": { "type": ["string", "null"], "format": "date-time" },
+    "sold_at": { "type": ["string", "null"], "format": "date-time" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

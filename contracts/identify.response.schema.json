@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snapsell.app/contracts/identify.response.schema.json",
+  "title": "IdentifyResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["item", "listing_text", "request_id"],
+  "properties": {
+    "item": { "$ref": "item.schema.json" },
+    "listing_text": { "$ref": "#/$defs/ListingText" },
+    "request_id": { "type": "string", "description": "Backend request id for support and cost tracing." }
+  },
+  "$defs": {
+    "ListingText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "description"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 99, "description": "Marketplace title. Facebook truncates around 99 characters." },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    }
+  }
+}
