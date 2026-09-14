@@ -36,5 +36,29 @@ suspend inline fun <T> appResult(crossinline block: suspend () -> T): AppResult<
 } catch (e: kotlinx.coroutines.CancellationException) {
     throw e
 } catch (e: Exception) {
-    AppResult.Failure(e.message ?: e::class.java.simpleName, e)
+    AppResult.Failure(describeError(e), e)
+}
+
+/**
+ * Turns an exception into something a person can act on. The backend answers
+ * errors with `{"detail": "..."}`, so that text is preferred over the bare status.
+ */
+fun describeError(e: Exception): String = when (e) {
+    is retrofit2.HttpException -> {
+        val detail = runCatching {
+            val body = e.response()?.errorBody()?.string().orEmpty()
+            Regex("\"detail\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+        }.getOrNull()
+        when {
+            detail != null -> "Server: $detail (HTTP ${e.code()})"
+            e.code() == 401 || e.code() == 403 -> "Not signed in or not on the allowlist (HTTP ${e.code()})"
+            e.code() == 429 -> "Daily limit reached on the server (HTTP 429)"
+            else -> "Server error (HTTP ${e.code()})"
+        }
+    }
+    is java.net.ConnectException, is java.net.UnknownHostException ->
+        "Can't reach the backend. Is it running, and is the URL in Settings right?"
+    is java.net.SocketTimeoutException -> "The backend took too long to answer."
+    is java.io.IOException -> "Network error: ${e.message ?: e::class.java.simpleName}"
+    else -> e.message ?: e::class.java.simpleName
 }

@@ -59,7 +59,21 @@ fun ReviewScreen(
     val vm: ReviewViewModel = viewModel { ReviewViewModel(container) }
     val state by vm.state.collectAsStateWithLifecycle()
 
-    Scaffold(topBar = { SnapTopBar(title = "Review items", onBack = onBack) }) { padding ->
+    Scaffold(
+        topBar = { SnapTopBar(title = "Review items", onBack = onBack) },
+        // Pinned so the primary action is never below the fold on a tall photo.
+        bottomBar = {
+            if (state.bitmap != null && !state.committing) {
+                Button(
+                    onClick = { vm.identify(onConfirm) },
+                    enabled = state.selectedCount > 0 && !state.segmenting,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text("Identify ${state.selectedCount} item${if (state.selectedCount == 1) "" else "s"}")
+                }
+            }
+        },
+    ) { padding ->
         val bitmap = state.bitmap
         if (bitmap == null) {
             Column(Modifier.padding(padding).padding(24.dp)) {
@@ -202,13 +216,6 @@ fun ReviewScreen(
                         Text(if (state.manualMode) "Cancel box" else "Add item")
                     }
                     OutlinedButton(onClick = onRetake, modifier = Modifier.weight(1f)) { Text("Retake photo") }
-                }
-                Button(
-                    onClick = { vm.identify(onConfirm) },
-                    enabled = state.selectedCount > 0 && !state.segmenting,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                ) {
-                    Text("Identify ${state.selectedCount} item${if (state.selectedCount == 1) "" else "s"}")
                 }
             }
         }
