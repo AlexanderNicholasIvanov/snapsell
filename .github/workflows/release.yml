@@ -64,7 +64,7 @@ jobs:
             ${SNAPSELL_BACKEND_URL:+-Psnapsell.backendUrl="$SNAPSELL_BACKEND_URL"} \
             -Psnapsell.updateRepo="$SNAPSELL_UPDATE_REPO" \
             ${SNAPSELL_UPDATE_TOKEN:+-Psnapsell.updateToken="$SNAPSELL_UPDATE_TOKEN"} \
-            assembleRelease testReleaseUnitTest
+            assembleRelease testDebugUnitTest
           APK=app/build/outputs/apk/release/app-release.apk
           test -f "$APK"
           cp "$APK" "$RUNNER_TEMP/snapsell-0.1.${VERSION_CODE}.apk"
