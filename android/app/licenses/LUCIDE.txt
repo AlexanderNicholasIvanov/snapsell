@@ -1,0 +1,2 @@
+The ic_lucide_*.xml vector drawables in drawable/ are converted from Lucide icons.
+https://lucide.dev — ISC License, Copyright (c) Lucide Icons and Contributors.
