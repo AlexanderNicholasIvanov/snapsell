@@ -19,6 +19,10 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: android-actions/setup-android@v4
+        with:
+          # v4 defaults to installing the removed 'tools' package and fails.
+          # AGP fetches the platforms and build-tools it needs on its own.
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@v6
       # gradle.properties pins org.gradle.java.home to a Homebrew path for local
       # builds; CI overrides it with the JDK setup-java installed.
