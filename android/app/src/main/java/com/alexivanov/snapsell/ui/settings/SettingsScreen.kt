@@ -40,6 +40,7 @@ import com.alexivanov.snapsell.ui.common.GhostButton
 import com.alexivanov.snapsell.ui.common.LucideIcon
 import com.alexivanov.snapsell.ui.common.MicroLabel
 import com.alexivanov.snapsell.ui.common.Rule
+import com.alexivanov.snapsell.ui.common.PrimaryButton
 import com.alexivanov.snapsell.ui.common.SecondaryButton
 import com.alexivanov.snapsell.ui.common.SnapSlider
 import com.alexivanov.snapsell.ui.common.SnapTextField
@@ -48,6 +49,7 @@ import com.alexivanov.snapsell.ui.common.Spinner
 import com.alexivanov.snapsell.ui.theme.SnapType
 import com.alexivanov.snapsell.ui.theme.snapColors
 import com.alexivanov.snapsell.update.ManualCheck
+import com.alexivanov.snapsell.update.UpdateChecker
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -147,30 +149,71 @@ fun SettingsScreen(container: AppContainer, onSignedOut: () -> Unit, onBack: () 
                 )
             }
 
-            SecondaryButton(
-                "Check for updates",
-                onClick = { container.updates.checkNow() },
-                enabled = manualCheck != ManualCheck.Checking,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                trailing = if (manualCheck == ManualCheck.Checking) ({ Spinner() }) else null,
-            )
-            val versionLine = "SnapSell v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE}, ${BuildConfig.BUILD_TYPE})"
-            when (val m = manualCheck) {
-                ManualCheck.Idle, ManualCheck.Checking -> Text(versionLine, style = SnapType.bodySmall, color = c.text.copy(alpha = 0.7f), modifier = Modifier.padding(top = 8.dp))
-                ManualCheck.UpToDate -> Text("You have the latest version (v${BuildConfig.VERSION_NAME})", style = SnapType.bodySmall, color = c.text, modifier = Modifier.padding(top = 8.dp))
-                ManualCheck.Failed -> {
-                    ErrorText("Couldn't check for updates", Modifier.padding(top = 8.dp))
-                    Text(versionLine, style = SnapType.bodySmall, color = c.text.copy(alpha = 0.7f), modifier = Modifier.padding(top = 2.dp))
-                }
-                is ManualCheck.Available -> Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${m.info.versionName} is available", style = SnapType.bodySmall.copy(fontWeight = FontWeight.ExtraBold), color = c.text, modifier = Modifier.weight(1f))
-                    GhostButton(
-                        "Download",
-                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, m.info.apkUrl.toUri())) } },
-                        minHeight = 40.dp,
-                        color = c.accent700,
+            Rule(Modifier.padding(vertical = 24.dp), 2.dp)
+
+            // App version: what is installed and, once known, the latest release.
+            // `available` is filled by the automatic check at launch; a manual check refreshes it.
+            val autoLatest by container.updates.available.collectAsStateWithLifecycle()
+            val latest = (manualCheck as? ManualCheck.Available)?.info ?: autoLatest
+            Text("App version", style = SnapType.rowTitle.copy(fontSize = 16.sp), color = c.text)
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    MicroLabel("Installed")
+                    Text("v${BuildConfig.VERSION_NAME}", style = SnapType.statValue, color = c.text)
+                    Text(
+                        "build ${BuildConfig.VERSION_CODE} · ${BuildConfig.BUILD_TYPE}",
+                        style = SnapType.bodySmall,
+                        color = c.text.copy(alpha = 0.6f),
                     )
                 }
+                Column(Modifier.weight(1f)) {
+                    MicroLabel("Latest available")
+                    when {
+                        latest != null -> {
+                            Text(latest.versionName, style = SnapType.statValue, color = c.accent700)
+                            Text(
+                                UpdateChecker.formatSize(latest.sizeBytes).ifEmpty { "newer than installed" },
+                                style = SnapType.bodySmall,
+                                color = c.text.copy(alpha = 0.6f),
+                            )
+                        }
+                        manualCheck == ManualCheck.UpToDate -> {
+                            Text("v${BuildConfig.VERSION_NAME}", style = SnapType.statValue, color = c.text)
+                            Text("you have the latest", style = SnapType.bodySmall, color = c.text.copy(alpha = 0.6f))
+                        }
+                        manualCheck == ManualCheck.Checking -> Spinner()
+                        else -> Text("\u2014", style = SnapType.statValue, color = c.text.copy(alpha = 0.4f))
+                    }
+                }
+            }
+            if (latest != null) {
+                PrimaryButton(
+                    "Download ${latest.versionName}",
+                    onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, latest.apkUrl.toUri())) } },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    trailing = { LucideIcon(R.drawable.ic_lucide_external_link, null, tint = c.bg) },
+                )
+                Text(
+                    "Downloads in your browser. Android asks before installing.",
+                    style = SnapType.bodySmall,
+                    color = c.text.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                GhostButton(
+                    "Check again",
+                    onClick = { container.updates.checkNow() },
+                    enabled = manualCheck != ManualCheck.Checking,
+                    minHeight = 40.dp,
+                )
+            } else {
+                SecondaryButton(
+                    "Check for updates",
+                    onClick = { container.updates.checkNow() },
+                    enabled = manualCheck != ManualCheck.Checking,
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    trailing = if (manualCheck == ManualCheck.Checking) ({ Spinner() }) else null,
+                )
+                if (manualCheck == ManualCheck.Failed) ErrorText("Couldn't check for updates", Modifier.padding(top = 8.dp))
             }
 
             Rule(Modifier.padding(vertical = 24.dp), 2.dp)
