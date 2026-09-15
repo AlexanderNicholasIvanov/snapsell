@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -140,13 +140,19 @@ fun ReviewScreen(
             }
 
             val imageBitmap = remember(bitmap) { bitmap.asImageBitmap() }
-            Box(
-                Modifier
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
-                    .fillMaxWidth()
-                    .aspectRatio(4f / 3f)
-                    .border(1.dp, c.divider),
-            ) {
+            // The box follows the photo's own aspect ratio so a portrait shot is not
+            // letterboxed inside a landscape frame. Height is capped so a very tall
+            // photo still leaves the chips and bottom bar reachable without a long scroll.
+            val photoRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+            BoxWithConstraints(Modifier.padding(horizontal = 16.dp, vertical = 14.dp).fillMaxWidth()) {
+                val boxWidth = maxWidth
+                val boxHeight = minOf(boxWidth / photoRatio, 560.dp)
+                Box(
+                    Modifier
+                        .width(boxWidth)
+                        .height(boxHeight)
+                        .border(1.dp, c.divider),
+                ) {
                 PhotoCanvas(
                     imageBitmap = imageBitmap,
                     bitmapW = bitmap.width,
@@ -175,6 +181,7 @@ fun ReviewScreen(
                             Text("  Finding objects", style = SnapType.bodySmall, color = Color.White)
                         }
                     }
+                }
                 }
             }
             Text(
