@@ -28,3 +28,14 @@ backend/firebase-service-account.json
 
 # Editors
 .vscode/
+
+# iOS
+ios/SnapSell.xcodeproj/
+ios/*.xcworkspace/
+ios/build/
+ios/DerivedData/
+ios/Config/Local.xcconfig
+ios/SnapSell/Resources/GoogleService-Info.plist
+ios/**/xcuserdata/
+*.ipa
+*.xcarchive

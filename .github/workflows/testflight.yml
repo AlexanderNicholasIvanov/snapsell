@@ -1,0 +1,120 @@
+name: TestFlight
+
+# Archives the iOS app and uploads it to TestFlight.
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   ASC_KEY_ID                    App Store Connect API key ID (e.g. 48M5JQ79S5)
+#   ASC_ISSUER_ID                 App Store Connect issuer ID (UUID)
+#   ASC_KEY_P8                    Contents of the AuthKey_<KEY_ID>.p8 file, base64-encoded
+#   GOOGLE_SERVICE_INFO_PLIST_B64 (optional) Firebase iOS GoogleService-Info.plist, base64-encoded
+# Optional repository variables:
+#   SNAPSELL_BACKEND_URL          Backend base URL baked into the build (must end in /)
+#   GOOGLE_REVERSED_CLIENT_ID     REVERSED_CLIENT_ID from the plist (needed for Google sign-in)
+
+on:
+  push:
+    tags: ["ios-v*"]
+  workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: "Marketing version (CFBundleShortVersionString), e.g. 0.1"
+        required: false
+        default: ""
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          test -n "$ASC_KEY_P8" || { echo "ASC_KEY_P8 secret is missing"; exit 1; }
+          mkdir -p ~/.private_keys
+          echo "$ASC_KEY_P8" | base64 --decode > ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Write Firebase config (optional)
+        env:
+          PLIST_B64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_B64 }}
+        run: |
+          if [ -n "$PLIST_B64" ]; then
+            echo "$PLIST_B64" | base64 --decode > SnapSell/Resources/GoogleService-Info.plist
+            echo "Firebase config written"
+          else
+            echo "No GOOGLE_SERVICE_INFO_PLIST_B64 secret: building without Firebase sign-in"
+          fi
+
+      - name: Write Local.xcconfig
+        env:
+          BACKEND_URL: ${{ vars.SNAPSELL_BACKEND_URL }}
+          REVERSED_CLIENT_ID: ${{ vars.GOOGLE_REVERSED_CLIENT_ID }}
+          MARKETING_VERSION: ${{ github.event.inputs.marketing_version }}
+        run: |
+          {
+            echo "CURRENT_PROJECT_VERSION = ${{ github.run_number }}"
+            [ -n "$MARKETING_VERSION" ] && echo "MARKETING_VERSION = $MARKETING_VERSION"
+            # "//" starts a comment in xcconfig; split the scheme with $().
+            [ -n "$BACKEND_URL" ] && echo "SNAPSELL_BACKEND_URL = $(echo "$BACKEND_URL" | sed 's#://#:/$()/#')"
+            [ -n "$REVERSED_CLIENT_ID" ] && echo "GOOGLE_REVERSED_CLIENT_ID = $REVERSED_CLIENT_ID"
+            true
+          } > Config/Local.xcconfig
+          cat Config/Local.xcconfig
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project SnapSell.xcodeproj \
+            -scheme SnapSell \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/SnapSell.xcarchive \
+            -derivedDataPath DerivedData \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/SnapSell.xcarchive \
+            -exportOptionsPlist scripts/ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Upload archive artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SnapSell-ios-${{ github.run_number }}
+          path: ios/build/export
+          if-no-files-found: ignore

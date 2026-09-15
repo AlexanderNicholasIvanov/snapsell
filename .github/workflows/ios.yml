@@ -1,0 +1,49 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    paths: ["ios/**", "contracts/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", "contracts/**", ".github/workflows/ios.yml"]
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Install XcodeGen and xcbeautify
+        run: brew install xcodegen xcbeautify
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ios/DerivedData/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('ios/project.yml') }}
+
+      - name: Build and test (simulator)
+        run: |
+          xcodebuild test \
+            -project SnapSell.xcodeproj \
+            -scheme SnapSell \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify --renderer github-actions || exit ${PIPESTATUS[0]}
+        env:
+          NSUnbufferedIO: YES

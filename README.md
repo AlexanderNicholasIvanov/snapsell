@@ -84,3 +84,7 @@ it means every user must uninstall to take the next update.
 Two things must be verified on a real device before M1 is called done: the
 `fb://` deep link that lands on the Marketplace sell screen, and ML Kit's
 behaviour on small items in a crowded photo.
+
+## iOS
+
+A native SwiftUI port lives in [`ios/`](ios/README.md). It shares the backend and `contracts/`. See that README for building, Firebase setup and TestFlight uploads.

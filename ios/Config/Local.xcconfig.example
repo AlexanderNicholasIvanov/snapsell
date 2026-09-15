@@ -1,0 +1,3 @@
+// Copy to Local.xcconfig (gitignored). Every key is optional.
+// SNAPSELL_BACKEND_URL = https:/$()/snapsell-backend-xyz.a.run.app/
+// GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.1234567890-abc

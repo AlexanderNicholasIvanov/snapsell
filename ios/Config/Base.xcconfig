@@ -1,0 +1,21 @@
+// Build-time configuration shared by every configuration. Override locally in
+// Config/Local.xcconfig (gitignored, optional) or on the xcodebuild command line.
+//
+// xcconfig treats "//" as a comment, so URLs are written with the $() trick.
+// Default backend: the host machine, which is what the iOS simulator reaches
+// as localhost. Real phones need the deployed URL (Settings can override it).
+SNAPSELL_BACKEND_URL = http:/$()/localhost:8000/
+
+// Google Sign-In needs the REVERSED_CLIENT_ID from GoogleService-Info.plist
+// registered as a URL scheme. Empty when Firebase is not configured; the app
+// then hides "Sign in with Google" and offers "Continue without sign-in".
+GOOGLE_REVERSED_CLIENT_ID =
+
+MARKETING_VERSION = 0.1
+// CI passes CURRENT_PROJECT_VERSION=<run number>; local builds are 1.
+CURRENT_PROJECT_VERSION = 1
+
+DEVELOPMENT_TEAM = D9QD5DUKNC
+PRODUCT_BUNDLE_IDENTIFIER = com.alexivanov.snapsell
+
+#include? "Local.xcconfig"
