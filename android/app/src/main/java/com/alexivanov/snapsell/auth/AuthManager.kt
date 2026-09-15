@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.runBlocking
 
 /**
  * Firebase Auth via Google sign-in through Credential Manager, and the
@@ -48,8 +49,17 @@ class AuthManager(
     private val _currentUser = MutableStateFlow(auth?.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser
 
-    /** Debug-only local flag; see [SettingsRepository.devBypassAuth]. */
-    val devBypass: StateFlow<Boolean> = settings.devBypassAuth.stateIn(appScope, SharingStarted.Eagerly, false)
+    /**
+     * Debug-only local flag; see [SettingsRepository.devBypassAuth]. The initial
+     * value is read synchronously so the start destination is decided on the
+     * real flag rather than on a default that the async DataStore read then
+     * overturns a frame later.
+     */
+    val devBypass: StateFlow<Boolean> = settings.devBypassAuth.stateIn(
+        appScope,
+        SharingStarted.Eagerly,
+        runBlocking { settings.devBypassAuth.first() },
+    )
 
     init {
         auth?.addAuthStateListener { _currentUser.value = it.currentUser }

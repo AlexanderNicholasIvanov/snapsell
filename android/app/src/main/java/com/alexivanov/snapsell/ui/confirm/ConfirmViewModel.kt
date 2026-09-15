@@ -183,7 +183,7 @@ class ConfirmViewModel(private val container: AppContainer, private val itemIds:
             val factor = container.settings.currentLocalSaleFactor()
             when (val r = container.pricing.price(updated.toDto(), factor)) {
                 is AppResult.Success -> {
-                    container.inventory.saveQuote(id, r.value, finalPrice = r.value.suggestedPrice)
+                    container.inventory.saveQuote(id, r.value)
                     updateCard(id) { it.copy(pricing = false, quote = r.value, searchQuery = updated.searchQuery) }
                 }
                 is AppResult.Failure -> updateCard(id) { it.copy(pricing = false, priceError = r.message) }

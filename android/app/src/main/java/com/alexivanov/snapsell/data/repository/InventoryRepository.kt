@@ -9,7 +9,9 @@ import com.alexivanov.snapsell.data.local.SnapsellDatabase
 import com.alexivanov.snapsell.data.remote.dto.PriceQuote
 import com.alexivanov.snapsell.domain.ListingKind
 import com.alexivanov.snapsell.domain.ListingStatus
+import com.alexivanov.snapsell.domain.SuggestedPrice
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /** On-device inventory (Room). Every write stamps updatedAt from [clock]. */
 class InventoryRepository(
@@ -32,14 +34,35 @@ class InventoryRepository(
     suspend fun saveItems(list: List<ItemEntity>) = items.upsertAll(list.map { it.copy(updatedAt = clock.nowMillis()) })
     suspend fun deleteItem(id: String) = items.delete(id)
 
-    suspend fun saveQuote(itemId: String, quote: PriceQuote, finalPrice: Double?) {
+    /** Stores a fresh quote. A final price the user typed is never touched. */
+    suspend fun saveQuote(itemId: String, quote: PriceQuote) {
         val existing = items.get(itemId) ?: return
-        items.upsert(existing.copy(quote = quote, finalPrice = finalPrice, updatedAt = clock.nowMillis()))
+        items.upsert(existing.copy(quote = quote, updatedAt = clock.nowMillis()))
     }
 
-    suspend fun setFinalPrice(itemId: String, price: Double) {
+    /** null clears the override so the suggestion shows again. */
+    suspend fun setFinalPrice(itemId: String, price: Double?) {
         val existing = items.get(itemId) ?: return
         items.upsert(existing.copy(finalPrice = price, updatedAt = clock.nowMillis()))
+    }
+
+    /**
+     * Settings changed the local-sale factor: every stored quote gets a new
+     * suggested_price from its own asking_median, locally. Final prices are
+     * user input and are left alone.
+     */
+    suspend fun recomputeSuggestedPrices(localSaleFactor: Double) {
+        val all = items.observeAll().first()
+        val now = clock.nowMillis()
+        val updated = all.mapNotNull { item ->
+            val quote = item.quote ?: return@mapNotNull null
+            val next = quote.copy(
+                suggestedPrice = SuggestedPrice.recompute(quote.askingMedian, localSaleFactor),
+                localSaleFactor = localSaleFactor,
+            )
+            if (next == quote) null else item.copy(quote = next, updatedAt = now)
+        }
+        if (updated.isNotEmpty()) items.upsertAll(updated)
     }
 
     fun observeListings(): Flow<List<ListingWithItems>> = listings.observeAllWithItems()

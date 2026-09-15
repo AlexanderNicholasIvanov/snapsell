@@ -34,14 +34,21 @@ class ItemDetailViewModel(private val container: AppContainer, private val itemI
         container.settings.localSaleFactor,
         local,
     ) { item, factor, l ->
-        val priceText = if (priceTextTouched) l.priceText else (item?.finalPrice ?: item?.quote?.suggestedPrice)?.let(Money::plain).orEmpty()
+        val priceText = if (priceTextTouched) l.priceText else item?.finalPrice?.let(Money::plain).orEmpty()
         l.copy(loading = false, item = item, priceText = priceText, localSaleFactor = factor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ItemDetailUiState())
 
+    /** Typing a final price overrides the suggestion everywhere; clearing the field removes the override. */
     fun editPrice(text: String) {
         priceTextTouched = true
         local.update { it.copy(priceText = text, error = null) }
-        text.toDoubleOrNull()?.takeIf { it >= 0 }?.let { p -> viewModelScope.launch { container.inventory.setFinalPrice(itemId, p) } }
+        viewModelScope.launch {
+            if (text.isBlank()) {
+                container.inventory.setFinalPrice(itemId, null)
+            } else {
+                text.toDoubleOrNull()?.takeIf { it >= 0 }?.let { p -> container.inventory.setFinalPrice(itemId, p) }
+            }
+        }
     }
 
     fun reprice() {
@@ -51,8 +58,7 @@ class ItemDetailViewModel(private val container: AppContainer, private val itemI
             val factor = container.settings.currentLocalSaleFactor()
             when (val r = container.pricing.price(item.toDto(), factor)) {
                 is AppResult.Success -> {
-                    priceTextTouched = false
-                    container.inventory.saveQuote(itemId, r.value, finalPrice = r.value.suggestedPrice)
+                    container.inventory.saveQuote(itemId, r.value)
                     local.update { it.copy(pricing = false) }
                 }
                 is AppResult.Failure -> local.update { it.copy(pricing = false, error = r.message) }
@@ -69,7 +75,6 @@ class ItemDetailViewModel(private val container: AppContainer, private val itemI
             return
         }
         viewModelScope.launch {
-            container.inventory.setFinalPrice(itemId, price)
             val id = container.inventory.createListing(
                 kind = ListingKind.SINGLE,
                 itemIds = listOf(itemId),

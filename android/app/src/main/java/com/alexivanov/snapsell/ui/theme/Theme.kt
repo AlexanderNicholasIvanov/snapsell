@@ -1,46 +1,81 @@
 package com.alexivanov.snapsell.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.dp
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF1B4D3E),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFBFE9D6),
-    secondary = Color(0xFF8A6D1F),
-    secondaryContainer = Color(0xFFFFE8A3),
-    tertiary = Color(0xFF4E5C8A),
+/**
+ * Radius is 0 everywhere (the capture shutter is drawn as a circle by hand).
+ * M3's Shapes wants CornerBasedShape, so a 0dp rounded shape stands in for
+ * RectangleShape; visually identical.
+ */
+private val Square = RoundedCornerShape(0.dp)
+val ModernistShapes = Shapes(
+    extraSmall = Square,
+    small = Square,
+    medium = Square,
+    large = Square,
+    extraLarge = Square,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8FD8B8),
-    onPrimary = Color(0xFF00382A),
-    primaryContainer = Color(0xFF1B4D3E),
-    secondary = Color(0xFFF4C95D),
-    secondaryContainer = Color(0xFF5C4A00),
-    tertiary = Color(0xFFB8C4F5),
-)
+private fun SnapColors.toColorScheme(): ColorScheme {
+    val base = if (isDark) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = accent,
+        // On dark the primary label is #191817, not white.
+        onPrimary = bg,
+        primaryContainer = accent100,
+        onPrimaryContainer = accent800,
+        secondary = text,
+        onSecondary = bg,
+        secondaryContainer = surface,
+        onSecondaryContainer = text,
+        tertiary = accent700,
+        onTertiary = bg,
+        background = bg,
+        onBackground = text,
+        surface = surface,
+        onSurface = text,
+        surfaceVariant = surface,
+        onSurfaceVariant = text.copy(alpha = 0.70f),
+        surfaceContainer = surface,
+        surfaceContainerLow = bg,
+        surfaceContainerLowest = bg,
+        surfaceContainerHigh = surface,
+        surfaceContainerHighest = surface,
+        error = accent700,
+        onError = bg,
+        errorContainer = accent100,
+        onErrorContainer = accent800,
+        outline = divider,
+        outlineVariant = divider,
+        scrim = scrim,
+    )
+}
 
 @Composable
 fun SnapSellTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val context = LocalContext.current
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        darkTheme -> DarkColors
-        else -> LightColors
+    val colors = if (darkTheme) SnapDarkColors else SnapLightColors
+    CompositionLocalProvider(LocalSnapColors provides colors) {
+        MaterialTheme(
+            colorScheme = colors.toColorScheme(),
+            typography = SnapTypography,
+            shapes = ModernistShapes,
+            content = content,
+        )
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
 }
+
+/** Shorthand for the token set of the current theme. */
+val snapColors: SnapColors
+    @Composable get() = LocalSnapColors.current

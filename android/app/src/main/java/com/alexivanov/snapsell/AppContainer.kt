@@ -56,7 +56,7 @@ class AppContainer(private val app: Application) {
     val bundles: BundleRepository by lazy { RemoteBundleRepository(api) }
 
     val photoStore: PhotoStore by lazy { PhotoStore(app) }
-    val segmenter: Segmenter by lazy { Segmenter() }
+    val segmenter: Segmenter by lazy { Segmenter(app) }
     val cutoutRenderer: CutoutRenderer by lazy { CutoutRenderer(photoStore) }
     val captureSession: CaptureSession = CaptureSession()
 }

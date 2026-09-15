@@ -27,6 +27,10 @@ data class HandOffUiState(
     val launched: Boolean = false,
     val askOutcome: Boolean = false,
     val savedCount: Int = 0,
+    /** Steps 1 and 2 of the guided list are done once staging ran. */
+    val staged: Boolean = false,
+    /** Step 3 completes once the user has actually left for Facebook. */
+    val left: Boolean = false,
     val route: MarketplaceLauncher.Route? = null,
     val error: String? = null,
 )
@@ -59,6 +63,8 @@ class HandOffViewModel(private val container: AppContainer, private val listingI
                     it.copy(
                         staging = false,
                         launched = route != MarketplaceLauncher.Route.NONE,
+                        staged = true,
+                        left = route != MarketplaceLauncher.Route.NONE,
                         savedCount = saved.size,
                         route = route,
                         error = if (route == MarketplaceLauncher.Route.NONE) "No app could open Facebook Marketplace." else null,
@@ -81,9 +87,9 @@ class HandOffViewModel(private val container: AppContainer, private val listingI
 
     fun dismissOutcome() = local.update { it.copy(askOutcome = false, launched = false) }
 
-    fun markListed(onDone: () -> Unit) = setStatus(ListingStatus.LISTED, onDone)
-    fun markSkipped(onDone: () -> Unit) = setStatus(ListingStatus.SKIPPED, onDone)
-    fun markSold(onDone: () -> Unit) = setStatus(ListingStatus.SOLD, onDone)
+    /** Listed lands on the Listings tab (1); Skipped on Items (0). */
+    fun markListed(onDone: (tab: Int) -> Unit) = setStatus(ListingStatus.LISTED) { onDone(1) }
+    fun markSkipped(onDone: (tab: Int) -> Unit) = setStatus(ListingStatus.SKIPPED) { onDone(0) }
 
     private fun setStatus(status: ListingStatus, onDone: () -> Unit) {
         viewModelScope.launch {

@@ -21,7 +21,7 @@ import com.alexivanov.snapsell.ui.signin.SignInScreen
 
 object Routes {
     const val SIGN_IN = "signin"
-    const val INVENTORY = "inventory"
+    const val INVENTORY = "inventory?tab={tab}"
     const val CAPTURE = "capture"
     const val REVIEW = "review"
     const val CONFIRM = "confirm/{itemIds}"
@@ -30,6 +30,7 @@ object Routes {
     const val HANDOFF = "handoff/{listingId}"
     const val SETTINGS = "settings"
 
+    fun inventory(tab: Int = 0) = "inventory?tab=$tab"
     fun confirm(itemIds: List<String>) = "confirm/${itemIds.joinToString(",")}"
     fun item(itemId: String) = "item/$itemId"
     fun bundle(itemId: String? = null) = if (itemId == null) "bundle" else "bundle?itemId=$itemId"
@@ -39,10 +40,10 @@ object Routes {
 @Composable
 fun SnapSellNavHost(container: AppContainer) {
     val nav: NavHostController = rememberNavController()
-    val start = remember { if (container.auth.isSignedIn) Routes.INVENTORY else Routes.SIGN_IN }
+    val start = remember { if (container.auth.isSignedIn) Routes.inventory() else Routes.SIGN_IN }
 
-    fun goHome() {
-        nav.navigate(Routes.INVENTORY) {
+    fun goHome(tab: Int = 0) {
+        nav.navigate(Routes.inventory(tab)) {
             popUpTo(nav.graph.id) { inclusive = true }
             launchSingleTop = true
         }
@@ -52,9 +53,13 @@ fun SnapSellNavHost(container: AppContainer) {
         composable(Routes.SIGN_IN) {
             SignInScreen(container = container, onSignedIn = { goHome() })
         }
-        composable(Routes.INVENTORY) {
+        composable(
+            Routes.INVENTORY,
+            arguments = listOf(navArgument("tab") { type = NavType.IntType; defaultValue = 0 }),
+        ) { entry ->
             InventoryScreen(
                 container = container,
+                initialTab = entry.arguments?.getInt("tab") ?: 0,
                 onCapture = { nav.navigate(Routes.CAPTURE) },
                 onOpenItem = { nav.navigate(Routes.item(it)) },
                 onOpenListing = { nav.navigate(Routes.handoff(it)) },
@@ -123,7 +128,7 @@ fun SnapSellNavHost(container: AppContainer) {
             HandOffScreen(
                 container = container,
                 listingId = entry.arguments?.getString("listingId").orEmpty(),
-                onFinished = { goHome() },
+                onFinished = { tab -> goHome(tab) },
                 onBack = { nav.popBackStack() },
             )
         }

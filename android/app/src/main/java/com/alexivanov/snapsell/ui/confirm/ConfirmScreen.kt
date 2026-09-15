@@ -1,43 +1,56 @@
 package com.alexivanov.snapsell.ui.confirm
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
 import com.alexivanov.snapsell.AppContainer
-import com.alexivanov.snapsell.domain.Condition
+import com.alexivanov.snapsell.R
 import com.alexivanov.snapsell.domain.Money
+import com.alexivanov.snapsell.ui.common.ConditionChipRow
+import com.alexivanov.snapsell.ui.common.CutoutTile
 import com.alexivanov.snapsell.ui.common.ErrorText
+import com.alexivanov.snapsell.ui.common.FieldLabel
 import com.alexivanov.snapsell.ui.common.LoadingBox
+import com.alexivanov.snapsell.ui.common.LucideIcon
+import com.alexivanov.snapsell.ui.common.MicroLabel
+import com.alexivanov.snapsell.ui.common.PrimaryButton
+import com.alexivanov.snapsell.ui.common.Rule
+import com.alexivanov.snapsell.ui.common.SecondaryButton
+import com.alexivanov.snapsell.ui.common.Skeleton
+import com.alexivanov.snapsell.ui.common.SnapBottomBar
+import com.alexivanov.snapsell.ui.common.SnapTextField
 import com.alexivanov.snapsell.ui.common.SnapTopBar
+import com.alexivanov.snapsell.ui.common.Spinner
+import com.alexivanov.snapsell.ui.theme.SnapType
+import com.alexivanov.snapsell.ui.theme.snapColors
 import java.io.File
 
 @Composable
@@ -50,19 +63,28 @@ fun ConfirmScreen(
 ) {
     val vm: ConfirmViewModel = viewModel(key = itemIds.joinToString(",")) { ConfirmViewModel(container, itemIds) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val c = snapColors
+    val confirmedCount = state.cards.count { it.confirmed }
+    val outstanding = state.cards.count { it.identified && !it.confirmed }
 
     Scaffold(
-        topBar = { SnapTopBar(title = "Confirm ${state.cards.size} item${if (state.cards.size == 1) "" else "s"}", onBack = onBack) },
+        containerColor = c.bg,
+        topBar = {
+            SnapTopBar(title = "Confirm", onBack = onBack) {
+                MicroLabel("$confirmedCount/${state.cards.size} confirmed", alpha = 0.55f, style = SnapType.microLabel.copy(fontSize = 11.sp), modifier = Modifier.padding(end = 16.dp))
+            }
+        },
         bottomBar = {
-            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (state.cards.size > 1) {
-                    OutlinedButton(
-                        onClick = vm::confirmAll,
-                        enabled = !state.anyBusy && state.cards.any { it.identified },
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Confirm all") }
+            SnapBottomBar {
+                if (outstanding > 1) {
+                    SecondaryButton("Confirm all", onClick = vm::confirmAll, enabled = !state.anyBusy, modifier = Modifier.weight(1f))
                 }
-                Button(onClick = onDone, enabled = state.allPriced && !state.anyBusy, modifier = Modifier.weight(1f)) { Text("Done") }
+                PrimaryButton(
+                    "Done",
+                    onClick = onDone,
+                    enabled = state.cards.isNotEmpty() && state.cards.all { it.confirmed } && !state.anyBusy,
+                    modifier = Modifier.weight(1f),
+                )
             }
         },
     ) { padding ->
@@ -70,10 +92,26 @@ fun ConfirmScreen(
             LoadingBox(Modifier.padding(padding))
             return@Scaffold
         }
-        LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyColumn(
+            Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             item { ErrorText(state.error) }
             items(state.cards, key = { it.itemId }) { card ->
-                ConfirmCardView(card, vm, onOpenItem)
+                // 220ms fade + 6dp rise on enter.
+                val rise = with(LocalDensity.current) { 6.dp.roundToPx() }
+                val visible = remember { MutableTransitionState(false).apply { targetState = true } }
+                AnimatedVisibility(visibleState = visible, enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { rise }) {
+                    ConfirmCardView(card, vm, onOpenItem)
+                }
+            }
+            item {
+                Text(
+                    "Nothing is priced until you confirm the identification. Change the name, model or condition afterwards and the price is fetched again.",
+                    style = SnapType.fieldLabel.copy(lineHeight = 17.sp),
+                    color = c.text.copy(alpha = 0.55f),
+                )
             }
         }
     }
@@ -81,90 +119,87 @@ fun ConfirmScreen(
 
 @Composable
 private fun ConfirmCardView(card: ConfirmCard, vm: ConfirmViewModel, onOpenItem: (String) -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage(
-                    model = File(card.photoPath),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)),
-                )
-                Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    when {
-                        card.identifying -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(Modifier.size(18.dp))
-                            Text("Identifying…", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
+    val c = snapColors
+    Column(Modifier.fillMaxWidth().background(c.surface).border(1.dp, c.divider)) {
+        // Header, 14dp padding: 84dp cutout then the state-dependent column.
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.Top) {
+            CutoutTile(File(card.photoPath), 84.dp)
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                when {
+                    card.identifying -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Spinner()
+                            Spacer(Modifier.width(8.dp))
+                            MicroLabel("Identifying", alpha = 0.65f, style = SnapType.microLabel.copy(fontSize = 12.sp))
                         }
-                        card.identifyError != null -> {
-                            ErrorText(card.identifyError)
-                            TextButton(onClick = { vm.identify(card.itemId) }) { Text("Retry") }
-                        }
-                        else -> {
-                            if (card.category.isNotBlank()) Text(card.category, style = MaterialTheme.typography.labelMedium)
-                            if (card.confidence > 0) {
-                                Text("Confidence ${(card.confidence * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (card.attributes.isNotEmpty()) {
-                                Text(card.attributes.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
+                        Skeleton(Modifier.fillMaxWidth().padding(top = 14.dp))
+                        Skeleton(Modifier.fillMaxWidth(0.6f).padding(top = 8.dp), staggerMs = 200)
                     }
+                    card.identifyError != null -> {
+                        Text("Couldn't identify this one", style = SnapType.body.copy(fontWeight = FontWeight.ExtraBold), color = c.accent700)
+                        Text("The model returned no confident match.", style = SnapType.bodySmall, color = c.text, modifier = Modifier.padding(top = 2.dp))
+                        Text(card.identifyError, style = SnapType.fieldLabel.copy(fontSize = 11.sp), color = c.text.copy(alpha = 0.55f), modifier = Modifier.padding(top = 4.dp))
+                        SecondaryButton("Retry", onClick = { vm.identify(card.itemId) }, minHeight = 40.dp, modifier = Modifier.padding(top = 10.dp))
+                    }
+                    else -> SnapTextField(card.name, { vm.editName(card.itemId, it) }, label = "Name", placeholder = "What is it?")
                 }
             }
+        }
 
-            OutlinedTextField(
-                value = card.name, onValueChange = { vm.editName(card.itemId, it) },
-                label = { Text("Name") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            )
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = card.brand, onValueChange = { vm.editBrand(card.itemId, it) },
-                    label = { Text("Brand") }, singleLine = true, modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = card.model, onValueChange = { vm.editModel(card.itemId, it) },
-                    label = { Text("Model") }, singleLine = true, modifier = Modifier.weight(1f),
-                )
-            }
-            Text("Condition", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                items(Condition.entries) { c ->
-                    FilterChip(selected = card.condition == c, onClick = { vm.editCondition(card.itemId, c) }, label = { Text(c.label) })
+        if (card.identified && !card.identifying) {
+            Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SnapTextField(card.brand, { vm.editBrand(card.itemId, it) }, label = "Brand", modifier = Modifier.weight(1f))
+                    SnapTextField(card.model, { vm.editModel(card.itemId, it) }, label = "Model", modifier = Modifier.weight(1f))
                 }
-            }
-            OutlinedTextField(
-                value = card.notes, onValueChange = { vm.editNotes(card.itemId, it) },
-                label = { Text("Notes (flaws, what's included)") }, minLines = 2,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
-
-            ErrorText(card.priceError, Modifier.padding(top = 8.dp))
-            val quote = card.quote
-            if (quote != null && !card.pricing) {
-                val price = quote.suggestedPrice
-                Text(
-                    if (price != null) "Suggested ${Money.usd(price)} from ${quote.compCount} comps" else "No comps found (${quote.compCount})",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 12.dp),
+                Column {
+                    FieldLabel("Condition", Modifier.padding(bottom = 6.dp))
+                    ConditionChipRow(card.condition, onSelect = { vm.editCondition(card.itemId, it) })
+                }
+                SnapTextField(
+                    card.notes, { vm.editNotes(card.itemId, it) },
+                    label = "Notes", placeholder = "Scratches, missing parts, pickup details", singleLine = false, minHeight = 64.dp,
                 )
             }
 
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { vm.remove(card.itemId) }) { Text("Remove") }
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
-                    if (quote != null) {
-                        OutlinedButton(onClick = { onOpenItem(card.itemId) }, modifier = Modifier.padding(end = 8.dp)) { Text("View quote") }
+            Rule(thickness = 2.dp)
+            if (card.confirmed) {
+                // Price block: SUGGESTED PRICE over the figure, Detail -> on the right; RE-PRICING while a request is in flight.
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        MicroLabel("Suggested price")
+                        val q = card.quote
+                        when {
+                            card.pricing -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                                Spinner()
+                                Spacer(Modifier.width(8.dp))
+                                MicroLabel(if (q == null) "Pricing" else "Re-pricing", alpha = 0.65f, style = SnapType.microLabel.copy(fontSize = 12.sp))
+                            }
+                            q != null -> Text(q.suggestedPrice?.let(Money::usd) ?: "No comps", style = SnapType.cardPrice, color = c.text)
+                            else -> ErrorText(card.priceError ?: "Not priced", Modifier.padding(top = 4.dp))
+                        }
                     }
-                    Button(onClick = { vm.confirm(card.itemId) }, enabled = card.identified && !card.busy) {
-                        if (card.pricing) {
-                            CircularProgressIndicator(Modifier.height(18.dp).size(18.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    if (!card.pricing) {
+                        if (card.quote != null) {
+                            SecondaryButton(
+                                "Detail", onClick = { onOpenItem(card.itemId) }, minHeight = 40.dp,
+                                trailing = { LucideIcon(R.drawable.ic_lucide_chevron_right, null, size = 16.dp, tint = c.text) },
+                            )
                         } else {
-                            Text(if (quote == null) "Confirm" else "Re-price")
+                            SecondaryButton("Retry", onClick = { vm.confirm(card.itemId) }, minHeight = 40.dp)
                         }
                     }
                 }
+            } else {
+                Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SecondaryButton("Remove", onClick = { vm.remove(card.itemId) }, minHeight = 48.dp)
+                    PrimaryButton("Confirm", onClick = { vm.confirm(card.itemId) }, enabled = !card.busy, minHeight = 48.dp, modifier = Modifier.weight(1f))
+                }
+            }
+        } else if (card.identifyError != null) {
+            Rule(thickness = 2.dp)
+            Row(Modifier.fillMaxWidth().padding(14.dp)) {
+                SecondaryButton("Remove", onClick = { vm.remove(card.itemId) }, minHeight = 48.dp)
             }
         }
     }

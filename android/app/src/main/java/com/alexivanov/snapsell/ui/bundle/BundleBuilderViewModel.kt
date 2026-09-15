@@ -22,7 +22,8 @@ data class BundleUiState(
     val candidates: List<ItemEntity> = emptyList(),
     val selected: Set<String> = emptySet(),
     val discount: Double = BundlePricing.DEFAULT_DISCOUNT,
-    val discountText: String = BundlePricing.DEFAULT_DISCOUNT.toString(),
+    /** Percent, as typed: "80". */
+    val discountText: String = (BundlePricing.DEFAULT_DISCOUNT * 100).toInt().toString(),
     val writing: Boolean = false,
     val title: String = "",
     val description: String = "",
@@ -50,17 +51,17 @@ class BundleBuilderViewModel(private val container: AppContainer, initialItemId:
         s.copy(selected = next, title = "", description = "", error = null)
     }
 
-    fun setDiscount(value: Double) {
-        val d = value.coerceIn(BundlePricing.MIN_DISCOUNT, BundlePricing.MAX_DISCOUNT)
-        local.update { it.copy(discount = d, discountText = String.format(java.util.Locale.US, "%.2f", d), title = "", description = "") }
+    /** Slider: whole percent steps, 50-100. */
+    fun setDiscountPercent(percent: Int) {
+        val d = (percent / 100.0).coerceIn(BundlePricing.MIN_DISCOUNT, BundlePricing.MAX_DISCOUNT)
+        local.update { it.copy(discount = d, discountText = (d * 100).toInt().toString(), title = "", description = "") }
     }
 
+    /** Numeric field: bound to the slider when the value is in range. */
     fun setDiscountText(text: String) {
-        local.update { it.copy(discountText = text) }
-        text.toDoubleOrNull()?.let { d ->
-            if (d in BundlePricing.MIN_DISCOUNT..BundlePricing.MAX_DISCOUNT) {
-                local.update { it.copy(discount = d, title = "", description = "") }
-            }
+        local.update { it.copy(discountText = text.filter { ch -> ch.isDigit() }.take(3)) }
+        text.toIntOrNull()?.let { p ->
+            if (p in 50..100) local.update { it.copy(discount = p / 100.0, title = "", description = "") }
         }
     }
 

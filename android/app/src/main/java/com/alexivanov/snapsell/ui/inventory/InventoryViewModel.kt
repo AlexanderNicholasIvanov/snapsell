@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class InventoryUiState(
     val loading: Boolean = true,
@@ -20,7 +21,11 @@ data class InventoryUiState(
 /** An item plus the status of the most recent listing it belongs to, if any. */
 data class ItemRow(val item: ItemEntity, val listingStatus: ListingStatus?)
 
-class InventoryViewModel(inventory: InventoryRepository) : ViewModel() {
+class InventoryViewModel(private val inventory: InventoryRepository) : ViewModel() {
+    fun markSold(listingId: String) {
+        viewModelScope.launch { inventory.updateListingStatus(listingId, ListingStatus.SOLD) }
+    }
+
     val state: StateFlow<InventoryUiState> = combine(
         inventory.observeItems(),
         inventory.observeListings(),

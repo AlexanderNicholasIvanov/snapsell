@@ -1,5 +1,7 @@
 package com.alexivanov.snapsell.vision
 
+import android.app.ActivityManager
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Path
@@ -58,7 +60,21 @@ data class Segment(
  * device where it has not been downloaded yet, [segment] fails; callers fall
  * back to manual rectangles.
  */
-class Segmenter : Closeable {
+class Segmenter(context: Context) : Closeable {
+    /**
+     * ML Kit's segmentation runtime needs OpenGL ES 3.1. On a GLES 3.0 device
+     * (the Android emulator, some very old phones) it does not fail cleanly:
+     * it crashes natively in its GL thread. So the version is checked up front
+     * and [segment] throws [UnavailableException] instead of ever calling in.
+     */
+    private val glEsVersion: Int = context.applicationContext
+        .getSystemService(ActivityManager::class.java)
+        ?.deviceConfigurationInfo?.reqGlEsVersion ?: 0
+
+    val isAvailable: Boolean get() = glEsVersion >= MIN_GLES_VERSION
+
+    class UnavailableException(message: String) : IllegalStateException(message)
+
     private val segmenter by lazy {
         val subjectOptions = SubjectSegmenterOptions.SubjectResultOptions.Builder()
             .enableConfidenceMask()
@@ -73,6 +89,11 @@ class Segmenter : Closeable {
     }
 
     suspend fun segment(bitmap: Bitmap): List<Segment> {
+        if (!isAvailable) {
+            throw UnavailableException(
+                "Subject segmentation needs OpenGL ES 3.1; this device reports 0x${Integer.toHexString(glEsVersion)}.",
+            )
+        }
         val result = segmenter.process(InputImage.fromBitmap(bitmap, 0)).await()
         return result.subjects.mapIndexedNotNull { index, subject ->
             if (subject.width <= 0 || subject.height <= 0) return@mapIndexedNotNull null
@@ -96,6 +117,8 @@ class Segmenter : Closeable {
     }
 
     companion object {
+        /** 0x30001 = OpenGL ES 3.1, the floor for ML Kit's GPU pipeline. */
+        const val MIN_GLES_VERSION = 0x30001
         const val MASK_THRESHOLD = 0.5f
         private const val OUTLINE_ROWS = 64
 

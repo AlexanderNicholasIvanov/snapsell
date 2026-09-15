@@ -85,12 +85,28 @@ app/src/main/java/com/alexivanov/snapsell/
 app/schemas/   exported Room schema (KSP room.schemaLocation)
 ```
 
+## Design system
+
+The UI follows `docs/design-handoff.md` (Modernist skin on M3 structure).
+Tokens live in `ui/theme/`: `SnapColors` (light/dark, exposed through
+`LocalSnapColors`), `SnapType` (Archivo 400/600/800 roles) and
+`ModernistShapes` (every M3 shape is square; only the capture shutter is a
+circle). Shared pieces are in `ui/common/Common.kt`: `SnapTopBar`,
+`SnapBottomBar`, `PrimaryButton` / `SecondaryButton` / `GhostButton`
+(flush-left labels), `StatusChip`, `ConditionChipRow`, `CutoutTile`,
+`SnapTextField`, `SquareCheckbox`, `SnapSlider`, `Skeleton`, `Spinner`.
+Lucide icons are `res/drawable/ic_lucide_*.xml`, tinted at the use site.
+
+Changing the local-sale factor in Settings recomputes every stored
+suggested price on the device (`SuggestedPrice.recompute`, the same rule the
+backend uses) and never touches a final price the user typed.
+
 ## Tests
 
 `./gradlew testDebugUnitTest` runs:
 
-- `domain/BundlePricingTest`, `domain/PricePointsTest` — pricing rules that
-  must match the backend.
+- `domain/BundlePricingTest`, `domain/PricePointsTest`, `domain/SuggestedPriceTest`
+  — pricing rules that must match the backend.
 - `contracts/ContractsRoundTripTest` — decodes every file in
   `../../contracts/examples`, re-encodes, and checks the round trip and key
   sets. If the contracts change, this is the test that goes red.
@@ -113,8 +129,10 @@ device); the repository layer is thin enough to verify on a device.
    is tuned for people and large objects. Test with small items (jewellery,
    cables, phone cases) and cluttered backgrounds; when it finds nothing the
    Review screen falls back to "Add item" manual rectangles, which must feel
-   acceptable. The emulator has no Play services model download, so this
-   only works on a device.
+   acceptable. ML Kit's GPU pipeline needs OpenGL ES 3.1; on a GLES 3.0
+   device (the emulator) `Segmenter` refuses to run rather than crash
+   natively, so the emulator always shows the "outlining unavailable"
+   notice and only a real device exercises the model.
 
 Also worth checking on a device: the `Pictures/Resale` album shows up in the
 Facebook photo picker (API 29+ uses `RELATIVE_PATH`; API 24–28 requests

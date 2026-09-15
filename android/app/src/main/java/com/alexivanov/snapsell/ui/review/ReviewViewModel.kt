@@ -23,6 +23,8 @@ data class ReviewUiState(
     val segmenting: Boolean = false,
     val committing: Boolean = false,
     val manualMode: Boolean = false,
+    /** ML Kit could not run (model missing, emulator GL, ...): boxes are the only way in. */
+    val outlinerUnavailable: Boolean = false,
     val error: String? = null,
     /** Cutouts kept from earlier photos in this capture session. */
     val pendingCount: Int = 0,
@@ -66,17 +68,13 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
                         segments = segments,
                         selected = photo.selected.toSet(),
                         manualMode = segments.isEmpty(),
-                        error = if (segments.isEmpty()) "No items detected. Drag a box around each item instead." else null,
+                        error = if (segments.isEmpty()) "No objects found. Draw a box around each thing you want to sell." else null,
                     )
                 }
             }.onFailure { e ->
                 // Typical cause: the segmentation model has not been downloaded by Play services yet.
                 _state.update {
-                    it.copy(
-                        segmenting = false,
-                        manualMode = true,
-                        error = "On-device segmentation unavailable (${e.message ?: "unknown"}). Drag a box around each item instead.",
-                    )
+                    it.copy(segmenting = false, manualMode = true, outlinerUnavailable = true, error = null)
                 }
             }
         }
