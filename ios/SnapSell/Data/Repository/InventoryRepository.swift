@@ -11,10 +11,15 @@ final class InventoryRepository {
     private(set) var items: [Item] = []
     private(set) var listings: [ListingWithItems] = []
 
+    /// Kept alive here: `mainContext` only weakly refers to its container, and
+    /// a fetch on a context whose container has been released traps inside
+    /// SwiftData (SIGTRAP) instead of throwing.
+    @ObservationIgnored private let container: ModelContainer
     @ObservationIgnored private let context: ModelContext
     @ObservationIgnored private let clock: Clock
 
     init(container: ModelContainer, clock: Clock) {
+        self.container = container
         self.context = container.mainContext
         self.clock = clock
         reload()
