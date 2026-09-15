@@ -1,14 +1,22 @@
 package com.alexivanov.snapsell.ui.inventory
 
+import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +28,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,6 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alexivanov.snapsell.AppContainer
@@ -47,11 +60,14 @@ import com.alexivanov.snapsell.ui.common.GhostButton
 import com.alexivanov.snapsell.ui.common.IconBox
 import com.alexivanov.snapsell.ui.common.LucideIcon
 import com.alexivanov.snapsell.ui.common.MicroLabel
+import com.alexivanov.snapsell.ui.common.PrimaryButton
 import com.alexivanov.snapsell.ui.common.Rule
 import com.alexivanov.snapsell.ui.common.SnapTopBar
 import com.alexivanov.snapsell.ui.common.StatusChip
 import com.alexivanov.snapsell.ui.theme.SnapType
 import com.alexivanov.snapsell.ui.theme.snapColors
+import com.alexivanov.snapsell.update.UpdateChecker
+import com.alexivanov.snapsell.update.UpdateInfo
 import java.io.File
 
 @Composable
@@ -68,6 +84,9 @@ fun InventoryScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val c = snapColors
     var tab by rememberSaveable(initialTab) { mutableIntStateOf(initialTab) }
+    val update by container.updates.banner.collectAsStateWithLifecycle()
+    // Once per process: the first time Inventory shows, look for a newer release.
+    LaunchedEffect(Unit) { container.updates.checkOnce() }
 
     Box(Modifier.fillMaxSize().background(c.bg)) {
         Column(Modifier.fillMaxSize()) {
@@ -80,6 +99,9 @@ fun InventoryScreen(
                 selected = tab,
                 onSelect = { tab = it },
             )
+            update?.let { info ->
+                UpdateBanner(info, onDismiss = { container.updates.dismiss(info.versionCode) })
+            }
             when (tab) {
                 0 -> ItemsList(state.items, onOpenItem)
                 else -> ListingsList(state.listings, onOpenListing, onMarkSold = vm::markSold)
@@ -99,6 +121,42 @@ fun InventoryScreen(
             contentAlignment = Alignment.Center,
         ) {
             LucideIcon(R.drawable.ic_lucide_camera, "Capture items", size = 26.dp, tint = c.bg)
+        }
+    }
+}
+
+/**
+ * "Update available" between the tab row and the list. Download opens the APK
+ * URL in the browser and Android's installer takes it from there; nothing is
+ * fetched or installed by the app itself.
+ */
+@Composable
+private fun UpdateBanner(info: UpdateInfo, onDismiss: () -> Unit) {
+    val c = snapColors
+    val context = LocalContext.current
+    val rise = with(LocalDensity.current) { 6.dp.roundToPx() }
+    val visible = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(visibleState = visible, enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { rise }) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(c.surface)) {
+            Box(Modifier.width(2.dp).fillMaxHeight().background(c.accent))
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text("Update available", style = SnapType.rowTitle, color = c.text)
+                val size = UpdateChecker.formatSize(info.sizeBytes)
+                Text(
+                    "SnapSell ${info.versionName}" + if (size.isNotEmpty()) " · $size" else "",
+                    style = SnapType.bodySmall,
+                    color = c.text.copy(alpha = 0.75f),
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimaryButton(
+                        "Download",
+                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, info.apkUrl.toUri())) } },
+                        minHeight = 44.dp,
+                    )
+                    GhostButton("Not now", onClick = onDismiss, minHeight = 44.dp)
+                }
+            }
         }
     }
 }

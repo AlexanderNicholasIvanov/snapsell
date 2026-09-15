@@ -117,11 +117,12 @@ fun SignInScreen(container: AppContainer, onSignedIn: () -> Unit) {
                 }
             }
 
-            if (BuildConfig.DEBUG) {
-                // Debug-only: run against a backend started with auth disabled.
-                // AuthInterceptor sends no Authorization header while the flag is set.
+            // Always offered when Firebase is not configured (the only way in for
+            // such a build); when it is configured, only debug builds keep it.
+            // AuthInterceptor sends no Authorization header while the flag is set.
+            if (!auth.isConfigured || BuildConfig.DEBUG) {
                 SecondaryButton(
-                    label = "Continue without sign-in (dev)",
+                    label = if (BuildConfig.DEBUG) "Continue without sign-in (dev)" else "Continue without sign-in",
                     onClick = { scope.launch { auth.enableDevBypass() } },
                     minHeight = 52.dp,
                     modifier = Modifier.fillMaxWidth(),

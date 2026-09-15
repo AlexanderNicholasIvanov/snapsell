@@ -44,9 +44,8 @@ snapsell.backendUrl=http://10.0.2.2:8000/
 snapsell.googleWebClientId=1234567890-abc.apps.googleusercontent.com
 ```
 
-`snapsell.backendUrl` is exposed as `BuildConfig.BACKEND_URL`. Debug builds
-allow cleartext HTTP (`src/debug/AndroidManifest.xml`) so a local backend
-works; release builds do not.
+`snapsell.backendUrl` is exposed as `BuildConfig.BACKEND_URL` and can be
+overridden at runtime in Settings.
 
 ## Firebase / Google sign-in
 
@@ -64,10 +63,11 @@ screen says so.
 
 ### Debug: continue without sign-in
 
-Debug builds show a **"Continue without sign-in (dev)"** button. It sets a
-local DataStore flag; while set, `AuthInterceptor` sends **no**
-`Authorization` header. Use it with a backend started with auth disabled.
-"Sign out" in Settings clears the flag.
+Whenever Firebase is not configured, every build type shows a **"Continue
+without sign-in"** button (debug builds label it "(dev)" and keep it even
+when Firebase is configured). It sets a local DataStore flag; while set,
+`AuthInterceptor` sends **no** `Authorization` header. Use it with a backend
+started with auth disabled. "Sign out" in Settings clears the flag.
 
 ## Layout
 
@@ -84,6 +84,56 @@ app/src/main/java/com/alexivanov/snapsell/
   ui/          Compose screens + ViewModels, manual DI through AppContainer
 app/schemas/   exported Room schema (KSP room.schemaLocation)
 ```
+
+## Release builds, signing and versioning
+
+`assembleRelease` reads the signing key from Gradle properties first, then
+environment variables, named exactly:
+
+```
+SNAPSELL_KEYSTORE_PATH  SNAPSELL_KEYSTORE_PASSWORD  SNAPSELL_KEY_ALIAS  SNAPSELL_KEY_PASSWORD
+```
+
+```bash
+set -a; . ~/.snapsell/signing.env; set +a
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew --no-daemon assembleRelease
+/opt/homebrew/share/android-commandlinetools/build-tools/37.0.0/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
+
+When `SNAPSELL_KEYSTORE_PATH` is unset or the file is missing, the release
+build type falls back to the **debug** key and Gradle prints one warning line
+(`SnapSell: ... DEBUG-SIGNED`). Such an APK installs, but cannot update a
+properly signed install. Release stays unminified on purpose so stack traces
+from sideloaded builds are readable.
+
+`versionCode` comes from `-Psnapsell.versionCode=<n>` (CI passes the run
+number; local builds are 1) and `versionName` is `0.1.<versionCode>`.
+
+Cleartext HTTP is allowed in every build type (`usesCleartextTraffic` in the
+manifest) because the app is sideloaded to people who run the backend on a
+home network. Revisit before any Play Store submission.
+
+## In-app update check
+
+On the first Inventory display per process, `update/UpdateChecker` GETs
+`https://api.github.com/repos/<snapsell.updateRepo>/releases/latest` and,
+when the release is newer than the running build and has an `.apk` asset,
+Inventory shows an "Update available" banner. Download opens the asset URL
+in the browser; nothing is fetched or installed by the app. "Not now"
+remembers that version. Settings has a manual "Check for updates".
+
+- Version code of a release: `version_code: N` in the release body, else the
+  last number of the tag (`v0.1.42` -> 42).
+- `snapsell.updateToken`: optional GitHub token, sent as a Bearer header
+  (only needed while the repo is private).
+- `snapsell.updateManifestUrl`: replaces the GitHub URL entirely, for testing
+  against a local JSON file (`python3 -m http.server` on the host, then
+  `-Psnapsell.updateManifestUrl=http://10.0.2.2:8090/latest.json`).
+
+All three are read from `local.properties`, then `-P` properties, then the
+defaults, like `snapsell.backendUrl`. The backend URL can also be changed at
+runtime in Settings; it is persisted and applied to every request by a URL
+rewriting interceptor.
 
 ## Design system
 
@@ -111,6 +161,8 @@ backend uses) and never touches a final price the user typed.
   `../../contracts/examples`, re-encodes, and checks the round trip and key
   sets. If the contracts change, this is the test that goes red.
 - `handoff/ClipboardStagerTest` — exact clipboard block format.
+- `update/UpdateCheckerTest`, `data/remote/BackendUrlInterceptorTest` — release
+  parsing and URL rewriting, against an in-memory OkHttp interceptor.
 
 Room DAO tests are intentionally not included (they need Robolectric or a
 device); the repository layer is thin enough to verify on a device.

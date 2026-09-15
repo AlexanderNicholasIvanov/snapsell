@@ -33,7 +33,13 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.SnapSell"
+        android:usesCleartextTraffic="true"
         tools:targetApi="s">
+        <!-- usesCleartextTraffic: the app is sideloaded to people who may run
+             the backend over plain http on a home network (and the emulator
+             default is http://10.0.2.2:8000/). REVISIT before any Play Store
+             submission: switch to a network security config that allows
+             cleartext only for private ranges, or require https. -->
 
         <activity
             android:name=".MainActivity"

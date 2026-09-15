@@ -32,6 +32,21 @@ fun configValue(name: String, default: String): String =
 // 10.0.2.2 is the Android emulator's alias for the host machine's loopback.
 val backendUrl = configValue("snapsell.backendUrl", "http://10.0.2.2:8000/")
 val googleWebClientId = configValue("snapsell.googleWebClientId", "")
+// In-app update check against GitHub Releases (see update/UpdateChecker).
+val updateRepo = configValue("snapsell.updateRepo", "AlexanderNicholasIvanov/snapsell")
+val updateToken = configValue("snapsell.updateToken", "")
+val updateManifestUrl = configValue("snapsell.updateManifestUrl", "")
+
+// CI passes -Psnapsell.versionCode=<run number>; local builds are version 1.
+val snapsellVersionCode: Int = (project.findProperty("snapsell.versionCode") as String?)?.trim()?.toIntOrNull() ?: 1
+
+// Release signing: gradle property first, then the environment variable of
+// the same name. When no usable keystore is configured the release build
+// type falls back to the debug key so a local assembleRelease still works.
+fun signingValue(name: String): String? =
+    (project.findProperty(name) as String?)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(name)?.takeIf { it.isNotBlank() }
+val releaseKeystore: File? = signingValue("SNAPSELL_KEYSTORE_PATH")?.let { File(it) }?.takeIf { it.exists() }
 
 android {
     namespace = "com.alexivanov.snapsell"
@@ -45,11 +60,25 @@ android {
         // ML Kit Subject Segmentation requires API 24.
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = snapsellVersionCode
+        versionName = "0.1.$snapsellVersionCode"
 
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
+        buildConfigField("String", "UPDATE_TOKEN", "\"$updateToken\"")
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$updateManifestUrl\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            if (releaseKeystore != null) {
+                storeFile = releaseKeystore
+                storePassword = signingValue("SNAPSELL_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("SNAPSELL_KEY_ALIAS")
+                keyPassword = signingValue("SNAPSELL_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -57,7 +86,14 @@ android {
             isMinifyEnabled = false
         }
         release {
+            // Unminified on purpose: readable stack traces from sideloaded builds.
             isMinifyEnabled = false
+            if (releaseKeystore != null) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                logger.warn("SnapSell: SNAPSELL_KEYSTORE_PATH is unset or missing; the release APK will be DEBUG-SIGNED and cannot update a properly signed install.")
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 

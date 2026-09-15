@@ -1,12 +1,15 @@
 package com.alexivanov.snapsell.ui.settings
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -20,14 +23,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alexivanov.snapsell.AppContainer
 import com.alexivanov.snapsell.BuildConfig
 import com.alexivanov.snapsell.R
+import com.alexivanov.snapsell.data.remote.BackendUrlInterceptor
 import com.alexivanov.snapsell.data.repository.SettingsRepository
+import com.alexivanov.snapsell.ui.common.ErrorText
+import com.alexivanov.snapsell.ui.common.GhostButton
 import com.alexivanov.snapsell.ui.common.LucideIcon
 import com.alexivanov.snapsell.ui.common.MicroLabel
 import com.alexivanov.snapsell.ui.common.Rule
@@ -35,8 +44,10 @@ import com.alexivanov.snapsell.ui.common.SecondaryButton
 import com.alexivanov.snapsell.ui.common.SnapSlider
 import com.alexivanov.snapsell.ui.common.SnapTextField
 import com.alexivanov.snapsell.ui.common.SnapTopBar
+import com.alexivanov.snapsell.ui.common.Spinner
 import com.alexivanov.snapsell.ui.theme.SnapType
 import com.alexivanov.snapsell.ui.theme.snapColors
+import com.alexivanov.snapsell.update.ManualCheck
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -44,9 +55,12 @@ import kotlin.math.roundToInt
 fun SettingsScreen(container: AppContainer, onSignedOut: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val c = snapColors
+    val context = LocalContext.current
     val storedFactor by container.settings.localSaleFactor.collectAsStateWithLifecycle(initialValue = SettingsRepository.DEFAULT_LOCAL_SALE_FACTOR)
     val user by container.auth.currentUser.collectAsStateWithLifecycle()
     val devBypass by container.auth.devBypass.collectAsStateWithLifecycle()
+    val backendUrl by container.backendUrl.collectAsStateWithLifecycle()
+    val manualCheck by container.updates.manual.collectAsStateWithLifecycle()
 
     // The slider drags a local percent; the store (and every quote) updates when the drag ends.
     var percent by remember { mutableFloatStateOf((storedFactor * 100).toFloat()) }
@@ -59,6 +73,20 @@ fun SettingsScreen(container: AppContainer, onSignedOut: () -> Unit, onBack: () 
             container.settings.setLocalSaleFactor(factor)
             // Re-price every stored suggestion locally; user-typed final prices are untouched.
             container.inventory.recomputeSuggestedPrices(factor)
+        }
+    }
+
+    // Backend URL: edited locally, persisted only when it is a valid absolute http(s) base ending in "/".
+    var urlText by remember { mutableStateOf(backendUrl) }
+    var urlTouched by remember { mutableStateOf(false) }
+    LaunchedEffect(backendUrl) { if (!urlTouched) urlText = backendUrl }
+    val urlValid = BackendUrlInterceptor.isValidBaseUrl(urlText)
+    fun editUrl(text: String) {
+        urlTouched = true
+        urlText = text
+        if (BackendUrlInterceptor.isValidBaseUrl(text)) {
+            val normalized = text.trim()
+            scope.launch { container.settings.setBackendUrlOverride(if (normalized == container.defaultBackendUrl) null else normalized) }
         }
     }
 
@@ -92,25 +120,65 @@ fun SettingsScreen(container: AppContainer, onSignedOut: () -> Unit, onBack: () 
             Rule(Modifier.padding(vertical = 24.dp), 2.dp)
 
             SnapTextField(
-                value = container.backendUrl,
-                onValueChange = {},
+                value = urlText,
+                onValueChange = ::editUrl,
                 label = "Backend URL",
-                readOnly = true,
-                contentAlpha = 0.6f,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
+            if (!urlValid) {
+                ErrorText("Must be an absolute http:// or https:// address ending in /", Modifier.padding(top = 6.dp))
+            }
             Text(
-                "Set snapsell.backendUrl in android/local.properties to change this.",
+                "Where the SnapSell backend runs. Ask whoever set up the app if you are not sure.",
                 style = SnapType.fieldLabel,
                 color = c.text.copy(alpha = 0.55f),
                 modifier = Modifier.padding(top = 6.dp),
             )
+            if (backendUrl != container.defaultBackendUrl || urlText != container.defaultBackendUrl) {
+                GhostButton(
+                    "Reset to default",
+                    onClick = {
+                        urlTouched = false
+                        urlText = container.defaultBackendUrl
+                        scope.launch { container.settings.setBackendUrlOverride(null) }
+                    },
+                    minHeight = 40.dp,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+
+            SecondaryButton(
+                "Check for updates",
+                onClick = { container.updates.checkNow() },
+                enabled = manualCheck != ManualCheck.Checking,
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                trailing = if (manualCheck == ManualCheck.Checking) ({ Spinner() }) else null,
+            )
+            val versionLine = "SnapSell v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE}, ${BuildConfig.BUILD_TYPE})"
+            when (val m = manualCheck) {
+                ManualCheck.Idle, ManualCheck.Checking -> Text(versionLine, style = SnapType.bodySmall, color = c.text.copy(alpha = 0.7f), modifier = Modifier.padding(top = 8.dp))
+                ManualCheck.UpToDate -> Text("You have the latest version (v${BuildConfig.VERSION_NAME})", style = SnapType.bodySmall, color = c.text, modifier = Modifier.padding(top = 8.dp))
+                ManualCheck.Failed -> {
+                    ErrorText("Couldn't check for updates", Modifier.padding(top = 8.dp))
+                    Text(versionLine, style = SnapType.bodySmall, color = c.text.copy(alpha = 0.7f), modifier = Modifier.padding(top = 2.dp))
+                }
+                is ManualCheck.Available -> Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${m.info.versionName} is available", style = SnapType.bodySmall.copy(fontWeight = FontWeight.ExtraBold), color = c.text, modifier = Modifier.weight(1f))
+                    GhostButton(
+                        "Download",
+                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, m.info.apkUrl.toUri())) } },
+                        minHeight = 40.dp,
+                        color = c.accent700,
+                    )
+                }
+            }
 
             Rule(Modifier.padding(vertical = 24.dp), 2.dp)
 
             Text(
                 when {
                     user != null -> "Signed in as ${user?.email ?: user?.displayName ?: user?.uid}"
-                    devBypass -> "Dev mode: no sign-in (no Authorization header is sent)"
+                    devBypass -> "No sign-in (no Authorization header is sent)"
                     else -> "Not signed in"
                 },
                 style = SnapType.bodySmall,
@@ -125,11 +193,12 @@ fun SettingsScreen(container: AppContainer, onSignedOut: () -> Unit, onBack: () 
             )
 
             Text(
-                "SnapSell ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TYPE}) · Firebase ${if (container.auth.isConfigured) "configured" else "not configured"}",
+                "Firebase ${if (container.auth.isConfigured) "configured" else "not configured"}",
                 style = SnapType.fieldLabel,
                 color = c.text.copy(alpha = 0.55f),
                 modifier = Modifier.padding(top = 24.dp),
             )
+            Spacer(Modifier.width(1.dp))
         }
     }
 }

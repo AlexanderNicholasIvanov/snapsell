@@ -41,6 +41,37 @@ There is no Facebook API integration and no scraping. The last mile is manual by
   `./gradlew assembleDebug`.
 - Design decisions and open questions: [docs/DESIGN.md](docs/DESIGN.md).
 
+## Install on a phone
+
+Every push to `main` that touches the app publishes a signed APK under
+[Releases](https://github.com/AlexanderNicholasIvanov/snapsell/releases).
+
+1. On the phone, open the latest release and download the `.apk`.
+2. Open the download. Android asks once to allow installs from your browser.
+3. Open SnapSell. If Google sign-in is not configured, tap "Continue without sign-in".
+4. In Settings, set the Backend URL to wherever the backend is deployed.
+
+Every build is signed with the same key, so a newer release installs over the
+older one and keeps your inventory. If you ever see "app not installed" on an
+update, the key changed; uninstall and reinstall once.
+
+## Updates
+
+On launch the app looks at the latest GitHub Release. If its version is newer
+than the installed one, a banner offers **Download** or **Not now**. Nothing is
+downloaded or installed unless you tap Download, and "Not now" silences that
+version until the next one ships. Settings has a manual "Check for updates".
+
+The check reads the Releases API anonymously, which works only while the repo
+is public. For a private repo, either set the repository variable
+`SNAPSELL_UPDATE_REPO` to a separate public releases-only repo, or set the
+secret `SNAPSELL_UPDATE_TOKEN` to a fine-grained token with read-only Contents
+access on this repo (it is baked into the APK, so keep its scope minimal).
+
+Release signing lives outside the repo. The keystore and its passwords are
+stored as GitHub Actions secrets; keep a backup of the keystore, because losing
+it means every user must uninstall to take the next update.
+
 ## Status
 
 | Milestone | Scope | State |

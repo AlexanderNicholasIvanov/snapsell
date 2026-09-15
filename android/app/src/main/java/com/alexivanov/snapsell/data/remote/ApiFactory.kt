@@ -1,5 +1,6 @@
 package com.alexivanov.snapsell.data.remote
 
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -14,13 +15,15 @@ object ApiFactory {
         return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
     }
 
-    fun okHttp(tokenProvider: TokenProvider, debugLogging: Boolean): OkHttpClient {
+    fun okHttp(tokenProvider: TokenProvider, debugLogging: Boolean, urlInterceptor: Interceptor? = null): OkHttpClient {
         val builder = OkHttpClient.Builder()
             // Vision-LLM identification and eBay lookups take a while.
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(90, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
-            .addInterceptor(AuthInterceptor(tokenProvider))
+        // URL rewrite goes first so every later interceptor sees the final host.
+        if (urlInterceptor != null) builder.addInterceptor(urlInterceptor)
+        builder.addInterceptor(AuthInterceptor(tokenProvider))
         if (debugLogging) {
             // BASIC, not BODY: the identify request carries a base64 image.
             builder.addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })

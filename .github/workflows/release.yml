@@ -1,0 +1,79 @@
+name: release
+
+# Every push to main that touches the app publishes a signed APK as a GitHub
+# Release. The app checks the latest release on launch and offers the download;
+# installing is always the user's choice.
+
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", "contracts/**", ".github/workflows/release.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    env:
+      # versionCode must strictly increase for Android to accept an update.
+      # The workflow run number does that for free.
+      VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Restore signing keystore
+        run: |
+          echo "${{ secrets.SNAPSELL_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/snapsell-release.jks"
+          echo "SNAPSELL_KEYSTORE_PATH=$RUNNER_TEMP/snapsell-release.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        env:
+          SNAPSELL_KEYSTORE_PASSWORD: ${{ secrets.SNAPSELL_KEYSTORE_PASSWORD }}
+          SNAPSELL_KEY_ALIAS: ${{ secrets.SNAPSELL_KEY_ALIAS }}
+          SNAPSELL_KEY_PASSWORD: ${{ secrets.SNAPSELL_KEY_PASSWORD }}
+          # Repository variables (Settings > Secrets and variables > Actions > Variables).
+          # SNAPSELL_BACKEND_URL: where the deployed backend lives. Empty keeps the build default.
+          # SNAPSELL_UPDATE_REPO: owner/name whose Releases the app polls. Defaults to this repo.
+          SNAPSELL_BACKEND_URL: ${{ vars.SNAPSELL_BACKEND_URL }}
+          SNAPSELL_UPDATE_REPO: ${{ vars.SNAPSELL_UPDATE_REPO || github.repository }}
+          # Optional fine-grained PAT with Contents:read, only needed while the
+          # update repo is private. Baked into the APK, so keep its scope minimal.
+          SNAPSELL_UPDATE_TOKEN: ${{ secrets.SNAPSELL_UPDATE_TOKEN }}
+        run: |
+          ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" \
+            -Psnapsell.versionCode="$VERSION_CODE" \
+            ${SNAPSELL_BACKEND_URL:+-Psnapsell.backendUrl="$SNAPSELL_BACKEND_URL"} \
+            -Psnapsell.updateRepo="$SNAPSELL_UPDATE_REPO" \
+            ${SNAPSELL_UPDATE_TOKEN:+-Psnapsell.updateToken="$SNAPSELL_UPDATE_TOKEN"} \
+            assembleRelease testReleaseUnitTest
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          cp "$APK" "$RUNNER_TEMP/snapsell-0.1.${VERSION_CODE}.apk"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.1.${VERSION_CODE}"
+          NOTES="Signed sideload build ${TAG} from ${GITHUB_SHA::7}.
+
+          version_code: ${VERSION_CODE}
+
+          Install: download the .apk on your phone, open it, allow installs from your browser if asked. Updates install over the previous version because every build is signed with the same key."
+          gh release create "$TAG" "$RUNNER_TEMP/snapsell-0.1.${VERSION_CODE}.apk" \
+            --repo "$GITHUB_REPOSITORY" --title "SnapSell ${TAG}" --notes "$NOTES" --latest
