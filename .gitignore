@@ -39,3 +39,7 @@ ios/SnapSell/Resources/GoogleService-Info.plist
 ios/**/xcuserdata/
 *.ipa
 *.xcarchive
+
+# Hosting
+deploy/.env
+deploy/firebase-service-account.json

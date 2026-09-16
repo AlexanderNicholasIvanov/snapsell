@@ -50,6 +50,7 @@ Every push to `main` that touches the app publishes a signed APK under
 2. Open the download. Android asks once to allow installs from your browser.
 3. Open SnapSell. If Google sign-in is not configured, tap "Continue without sign-in".
 4. In Settings, set the Backend URL to wherever the backend is deployed.
+   Hosting the backend (Caddy + backend on one box, or Railway) is described in [`deploy/README.md`](deploy/README.md).
 
 Every build is signed with the same key, so a newer release installs over the
 older one and keeps your inventory. If you ever see "app not installed" on an
