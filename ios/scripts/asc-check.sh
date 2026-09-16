@@ -17,6 +17,6 @@ req = urllib.request.Request("https://api.appstoreconnect.apple.com/v1/apps?fiel
 data = json.load(urllib.request.urlopen(req))
 for app in data.get("data", []):
     print(app["attributes"]["bundleId"], "-", app["attributes"]["name"])
-if not any(a["attributes"]["bundleId"] == "com.alexivanov.snapsell" for a in data.get("data", [])):
-    print("\nNo app record for com.alexivanov.snapsell yet: create it in App Store Connect -> Apps -> + before the first upload.")
+if not any(a["attributes"]["bundleId"] == "com.victorivanov.snapsell" for a in data.get("data", [])):
+    print("\nNo app record for com.victorivanov.snapsell yet: create it in App Store Connect -> Apps -> + before the first upload.")
 PY

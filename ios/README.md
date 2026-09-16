@@ -53,7 +53,7 @@ the Mac's LAN address or a deployed backend.
 
 ## Firebase sign-in (owner action)
 
-1. Firebase console -> project settings -> Add app -> iOS, bundle id `com.alexivanov.snapsell`.
+1. Firebase console -> project settings -> Add app -> iOS, bundle id `com.victorivanov.snapsell`.
 2. Download `GoogleService-Info.plist` into `ios/SnapSell/Resources/` (gitignored).
 3. Copy its `REVERSED_CLIENT_ID` into `Config/Local.xcconfig` as `GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps....` (this becomes the URL scheme Google Sign-In returns on).
 4. Enable Google and Apple providers in Firebase Auth. Sign in with Apple is
@@ -67,7 +67,7 @@ the Mac's LAN address or a deployed backend.
 
 Signing is automatic with team `D9QD5DUKNC`. Before the first upload, the
 owner must create the app record once: App Store Connect -> Apps -> + ->
-name "SnapSell", bundle id `com.alexivanov.snapsell`, SKU anything.
+name "SnapSell", bundle id `com.victorivanov.snapsell`, SKU anything.
 
 An App Store Connect API key is needed for non-interactive uploads
 (Users and Access -> Integrations -> App Store Connect API -> Generate,

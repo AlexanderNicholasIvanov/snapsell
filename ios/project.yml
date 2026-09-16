@@ -94,7 +94,7 @@ targets:
       - target: SnapSell
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.alexivanov.snapsell.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.victorivanov.snapsell.tests
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
         # The contracts folder is read at test time from the repo checkout.
         SNAPSELL_CONTRACTS_DIR: $(SRCROOT)/../contracts
