@@ -1,12 +1,14 @@
 # SnapSell hosting: two processes on one box.
 #
+#   backend  the FastAPI service from ../backend. Listens on loopback only
+#            (127.0.0.1:SNAPSELL_BACKEND_PORT, default 8100); never on a public port.
 #   caddy    public entry point. Terminates HTTPS (Let's Encrypt, automatic) for
-#            SNAPSELL_DOMAIN and proxies to the backend. The phone apps require
-#            https, so this is not optional on a real host.
-#   backend  the FastAPI service from ../backend, reachable only from caddy.
+#            SNAPSELL_DOMAIN and proxies to the backend. Optional: a box that already
+#            runs its own reverse proxy skips it and adds caddy-site.example instead.
 #
 #   cp .env.example .env && edit it
-#   docker compose up -d --build
+#   docker compose up -d --build                  # backend only (existing reverse proxy)
+#   docker compose --profile caddy up -d --build  # backend + caddy
 #   curl https://$SNAPSELL_DOMAIN/health
 services:
   backend:
@@ -20,8 +22,8 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
     volumes:
       - ./firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
-    expose:
-      - "8000"
+    ports:
+      - "127.0.0.1:${SNAPSELL_BACKEND_PORT:-8100}:8000"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
       interval: 30s
@@ -31,6 +33,7 @@ services:
 
   caddy:
     image: caddy:2.11.4
+    profiles: ["caddy"]
     restart: unless-stopped
     depends_on:
       backend:

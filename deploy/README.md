@@ -5,8 +5,8 @@ over HTTPS. This directory runs that backend as **two processes on one host**:
 
 | Process | Image | Job |
 |---|---|---|
-| `caddy` | `caddy:2.11.4` | Public entry point. Automatic HTTPS for `SNAPSELL_DOMAIN`, proxies to the backend. |
-| `backend` | built from `../backend/Dockerfile` | The FastAPI service (`/health`, `/me`, `/identify`, `/price`, `/bundle`). Not exposed directly. |
+| `backend` | built from `../backend/Dockerfile` | The FastAPI service (`/health`, `/me`, `/identify`, `/price`, `/bundle`). Listens on `127.0.0.1:8100` only. |
+| `caddy` | `caddy:2.11.4` | Public entry point. Automatic HTTPS for `SNAPSELL_DOMAIN`, proxies to the backend. Optional (`--profile caddy`); a box that already runs its own reverse proxy uses `caddy-site.example` instead. |
 
 ## One-time setup on the host
 
@@ -18,9 +18,12 @@ over HTTPS. This directory runs that backend as **two processes on one host**:
    cp .env.example .env            # fill in SNAPSELL_DOMAIN, Anthropic + eBay keys, allowed emails
    # Firebase console -> Project settings -> Service accounts -> Generate new private key
    cp ~/Downloads/<your-firebase-key>.json firebase-service-account.json
-   docker compose up -d --build
+   docker compose --profile caddy up -d --build
    curl https://$SNAPSELL_DOMAIN/health   # {"status":"ok"}
    ```
+
+   Box that already runs Caddy (or another reverse proxy) on 80/443: run `docker compose up -d --build`
+   (backend only, on `127.0.0.1:8100`) and append `caddy-site.example` to `/etc/caddy/Caddyfile` with your hostname.
 
 3. Give the apps the URL (must end in `/`):
    - iOS TestFlight builds: set the repository variable `SNAPSELL_BACKEND_URL` (`.github/workflows/testflight.yml`) or `SNAPSELL_BACKEND_URL` in `ios/Config/Local.xcconfig` for local `ios/scripts/testflight.sh` runs.
@@ -32,7 +35,7 @@ over HTTPS. This directory runs that backend as **two processes on one host**:
 ## Updating
 
 ```bash
-git pull && docker compose up -d --build
+git pull && docker compose up -d --build            # add --profile caddy if you run the caddy container
 ```
 
 Caddy keeps its certificates in the `caddy_data` volume, so restarts and rebuilds do not re-issue them.
