@@ -1,0 +1,11 @@
+# Site block for a host that already runs Caddy as a system service.
+# Append to /etc/caddy/Caddyfile (replace the hostname), then:
+#   caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+# SnapSell backend (docker compose in /opt/snapsell/deploy, backend on 127.0.0.1:8100)
+https://api.example.com {
+	encode gzip
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy 127.0.0.1:8100
+}

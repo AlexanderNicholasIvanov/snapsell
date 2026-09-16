@@ -1,0 +1,10 @@
+# SNAPSELL_DOMAIN=api.example.com  -> automatic HTTPS on 443 (needs DNS -> this host, ports 80/443 open)
+# SNAPSELL_DOMAIN=:80              -> plain http, local testing only
+{$SNAPSELL_DOMAIN} {
+	encode gzip
+	# /identify carries a photo; allow a few MB.
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy backend:8000
+}
