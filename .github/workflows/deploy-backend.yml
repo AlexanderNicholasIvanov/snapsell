@@ -1,0 +1,72 @@
+name: deploy-backend
+
+# Deploys the backend to the VPS on demand. Never runs on push: the box also
+# hosts other services, so a deploy is a button someone presses.
+# See playbooks/deploy-backend.md.
+#
+# Required repository secret:
+#   VPS_SSH_KEY   private key whose public half is in the VPS user's authorized_keys
+# Required repository variables:
+#   VPS_HOST      e.g. srv1343782.hstgr.cloud
+#   VPS_USER      e.g. root
+# Optional variable:
+#   VPS_SSH_PORT  defaults to 22
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy (branch, tag, or SHA)"
+        required: true
+        default: "main"
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VPS_HOST: ${{ vars.VPS_HOST }}
+      VPS_USER: ${{ vars.VPS_USER }}
+      VPS_SSH_PORT: ${{ vars.VPS_SSH_PORT || '22' }}
+      DEPLOY_REF: ${{ github.event.inputs.ref }}
+    steps:
+      - name: Check configuration
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          test -n "$VPS_HOST" || { echo "VPS_HOST variable is missing"; exit 1; }
+          test -n "$VPS_USER" || { echo "VPS_USER variable is missing"; exit 1; }
+          test -n "$VPS_SSH_KEY" || { echo "VPS_SSH_KEY secret is missing"; exit 1; }
+
+      - name: Install SSH key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$VPS_SSH_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" \
+            "set -euo pipefail
+             cd /opt/snapsell
+             git fetch --all --tags --prune
+             git checkout --detach '$DEPLOY_REF' 2>/dev/null || git checkout --detach 'origin/$DEPLOY_REF'
+             echo \"deploying \$(git rev-parse --short HEAD)\"
+             cd deploy
+             docker compose up -d --build
+             docker compose ps"
+
+      - name: Verify
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "https://$VPS_HOST/health" | grep -q '"ok"'; then echo "healthy"; exit 0; fi
+            sleep 10
+          done
+          echo "backend did not become healthy"; exit 1

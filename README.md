@@ -40,6 +40,7 @@ There is no Facebook API integration and no scraping. The last mile is manual by
 - Android: see [android/README.md](android/README.md). Open in Android Studio or
   `./gradlew assembleDebug`.
 - Design decisions and open questions: [docs/DESIGN.md](docs/DESIGN.md).
+- How to deploy, release, extend, and onboard: [playbooks/](playbooks/README.md).
 
 ## Install on a phone
 
