@@ -133,3 +133,77 @@ async def test_api_status_error_becomes_llm_error() -> None:
     client = ClaudeClient("claude-opus-5", client=sdk)
     with pytest.raises(LlmError):
         await client.sold_estimate(Item(**load_example("item.json")), 1.0)
+
+
+async def test_identify_system_prompt_from_playbooks() -> None:
+    """Verify the system prompt matches the loaded playbook."""
+    from snapsell.llm import prompts
+
+    fixture = load_fixture("claude_identify_ipad.json")
+    client, captured = _client(lambda body: _message(json.dumps(fixture)))
+
+    await client.identify(b"\x89PNG", "image/png", None)
+
+    # The system prompt in the request should match the playbook
+    request_system = captured["body"]["system"]
+    assert request_system == prompts.IDENTIFY_SYSTEM
+
+
+async def test_identify_user_prompt_from_playbooks() -> None:
+    """Verify the user prompt matches the loaded playbook."""
+    from snapsell.llm import prompts
+
+    fixture = load_fixture("claude_identify_ipad.json")
+    client, captured = _client(lambda body: _message(json.dumps(fixture)))
+
+    await client.identify(b"\x89PNG", "image/png", None)
+
+    # The user text should match the base IDENTIFY_USER prompt
+    prompt_text = captured["body"]["messages"][0]["content"][1]["text"]
+    assert prompt_text == prompts.IDENTIFY_USER
+
+
+async def test_identify_user_prompt_with_hint_from_playbooks() -> None:
+    """Verify the user prompt with hint matches the loaded playbook."""
+    from snapsell.llm import prompts
+
+    fixture = load_fixture("claude_identify_ipad.json")
+    client, captured = _client(lambda body: _message(json.dumps(fixture)))
+
+    hint = "a tablet device"
+    await client.identify(b"\x89PNG", "image/png", hint)
+
+    # The user text should match the WITH_HINT prompt formatted with the hint
+    prompt_text = captured["body"]["messages"][0]["content"][1]["text"]
+    expected = prompts.IDENTIFY_USER_WITH_HINT.format(hint=hint)
+    assert prompt_text == expected
+
+
+async def test_sold_system_prompt_from_playbooks() -> None:
+    """Verify the sold estimate system prompt matches the playbook."""
+    from snapsell.llm import prompts
+
+    client, captured = _client(lambda body: _message('{"low": 50, "high": 100, "rationale": "r"}'))
+
+    item = Item(**load_example("item.json"))
+    await client.sold_estimate(item, 80.0)
+
+    # The system prompt should match the playbook
+    request_system = captured["body"]["system"]
+    assert request_system == prompts.SOLD_SYSTEM
+
+
+async def test_bundle_system_prompt_from_playbooks() -> None:
+    """Verify the bundle system prompt matches the playbook."""
+    from snapsell.llm import prompts
+
+    fixture = load_fixture("claude_bundle_kitchen.json")
+    client, captured = _client(lambda body: _message(json.dumps(fixture)))
+    req = load_example("bundle.request.json")
+    items = [BundleItem(**x) for x in req["items"]]
+
+    await client.bundle_text(items, req["bundle_price"])
+
+    # The system prompt should match the playbook
+    request_system = captured["body"]["system"]
+    assert request_system == prompts.BUNDLE_SYSTEM

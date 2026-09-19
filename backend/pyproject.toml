@@ -28,6 +28,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["snapsell"]
+include = ["playbooks/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,59 +1,74 @@
-"""Prompt text for the three LLM tasks. Kept in one file so it is easy to review and tune."""
+"""Prompt text for the three LLM tasks, loaded from versioned playbook files.
 
-IDENTIFY_SYSTEM = """\
-You identify second-hand items from a single photo so they can be resold locally.
-
-You will see one photo, usually a cutout of a single object on a plain background,
-sometimes a whole photo. Identify the object as precisely as the image allows:
-brand and exact model when they are legible or unmistakable, otherwise the most
-specific generic description. Never invent a model number you cannot see or infer
-with high confidence. Report your confidence honestly; a plain black cable is a
-low-confidence identification, a labelled KitchenAid mixer is a high one.
-
-Condition is your best read from the photo alone: new (sealed or tags on), like_new
-(no visible wear), good (light wear, fully usable), fair (obvious wear or minor
-damage), for_parts (clearly broken or incomplete). The user will correct it.
-
-search_query is the keyword string a buyer would type into eBay to find this exact
-item: brand, model, key spec. No condition words, no punctuation, under 80 characters.
-
-Also write listing text for Facebook Marketplace: a title under 99 characters with
-brand, model, and one key spec, and a plain description of 2-4 sentences that says
-what it is, notable specs, honest condition, what is or is not included, and ends
-with "Local pickup." Do not mention price in the description.
+At module initialization, prompts are loaded from backend/playbooks/ and cached.
+This file provides backward-compatible accessors for the prompt constants.
 """
 
-IDENTIFY_USER = "Identify this item and write the listing text."
-IDENTIFY_USER_WITH_HINT = "Identify this item and write the listing text. The seller says: {hint}"
+from __future__ import annotations
 
-SOLD_SYSTEM = """\
-You estimate what a second-hand item actually sells for in the United States,
-as opposed to what sellers ask. Use your knowledge of typical resale values on eBay,
-Facebook Marketplace, and similar. Answer with a low and high price in USD that
-covers where most sales of this item in this condition land, and one sentence of
-rationale. If you have no basis for an estimate, set both prices to 0.
-"""
+from snapsell.config import get_settings
+from snapsell.llm.playbooks import extract_section, load_playbooks
 
-SOLD_USER = """\
-Item: {name}
-Brand: {brand}
-Model: {model}
-Category: {category}
-Condition: {condition}
-Attributes: {attributes}
-Current eBay asking median (price plus shipping): {asking_median}
-"""
+# Cache loaded playbooks at module level
+_playbooks: dict | None = None
+_load_error: Exception | None = None
 
-BUNDLE_SYSTEM = """\
-You write Facebook Marketplace listing text for a bundle of several second-hand
-items sold together for one price. Write a title under 99 characters that names
-the theme and the headline items, and a description of 3-6 sentences that lists
-every item with its condition, states the bundle price and that it is below buying
-separately, and ends with "Local pickup." Do not change the price you are given.
-"""
+# Module-level prompt constants (lazy-loaded)
+IDENTIFY_SYSTEM: str
+IDENTIFY_USER: str
+IDENTIFY_USER_WITH_HINT: str
+SOLD_SYSTEM: str
+SOLD_USER: str
+BUNDLE_SYSTEM: str
+BUNDLE_USER: str
 
-BUNDLE_USER = """\
-Bundle price: ${bundle_price:.0f}
-Items:
-{items}
-"""
+
+def _ensure_loaded() -> dict:
+    """Load playbooks if not already loaded. Raises if loading failed."""
+    global _playbooks, _load_error
+
+    if _playbooks is not None:
+        return _playbooks
+
+    if _load_error is not None:
+        raise RuntimeError(f"Failed to load playbooks at startup: {_load_error}") from _load_error
+
+    try:
+        settings = get_settings()
+        playbooks_dir = settings.playbooks_dir or None
+        _playbooks = load_playbooks(playbooks_dir)
+        return _playbooks
+    except Exception as e:
+        _load_error = e
+        raise RuntimeError(f"Failed to load playbooks at startup: {e}") from e
+
+
+def _load_all_prompts() -> None:
+    """Load all prompts from playbooks into module-level variables."""
+    global IDENTIFY_SYSTEM, IDENTIFY_USER, IDENTIFY_USER_WITH_HINT
+    global SOLD_SYSTEM, SOLD_USER, BUNDLE_SYSTEM, BUNDLE_USER
+
+    playbooks = _ensure_loaded()
+
+    if "identify" not in playbooks:
+        raise RuntimeError("Required playbook 'identify' not found")
+    if "sold_estimate" not in playbooks:
+        raise RuntimeError("Required playbook 'sold_estimate' not found")
+    if "bundle" not in playbooks:
+        raise RuntimeError("Required playbook 'bundle' not found")
+
+    identify_pb = playbooks["identify"]
+    sold_pb = playbooks["sold_estimate"]
+    bundle_pb = playbooks["bundle"]
+
+    IDENTIFY_SYSTEM = extract_section(identify_pb.body, "System Prompt")
+    IDENTIFY_USER = extract_section(identify_pb.body, "User Prompt")
+    IDENTIFY_USER_WITH_HINT = extract_section(identify_pb.body, "User Prompt (with hint)")
+    SOLD_SYSTEM = extract_section(sold_pb.body, "System Prompt")
+    SOLD_USER = extract_section(sold_pb.body, "User Prompt Template")
+    BUNDLE_SYSTEM = extract_section(bundle_pb.body, "System Prompt")
+    BUNDLE_USER = extract_section(bundle_pb.body, "User Prompt Template")
+
+
+# Load prompts at module import time
+_load_all_prompts()
