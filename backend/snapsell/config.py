@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Max decoded image size accepted by /identify.
     max_image_bytes: int = 4 * 1024 * 1024
 
+    # Path to LLM prompt playbooks directory. Defaults to backend/playbooks/.
+    playbooks_dir: str = ""
+
     @field_validator("allowed_emails")
     @classmethod
     def _normalise_emails(cls, value: str) -> str:

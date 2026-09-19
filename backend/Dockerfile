@@ -6,6 +6,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY README.md ./
 COPY snapsell ./snapsell
+COPY playbooks ./playbooks
 RUN uv sync --frozen --no-dev
 # Cloud Run injects PORT. Default matches local runs.
 ENV PORT=8000

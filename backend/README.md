@@ -44,6 +44,29 @@ No test touches the network. eBay responses are recorded fixtures under
 recorded structured outputs. The same fixtures double as the pricing benchmark:
 change the formula, run the tests, see what moves.
 
+## Playbooks
+
+LLM prompts are versioned separately from code. Each prompt (identify, sold_estimate,
+bundle) lives in `backend/playbooks/` as a markdown file with YAML front matter
+(name, version, purpose) and the prompt body with clearly marked sections.
+
+### Editing a playbook
+
+To edit a prompt:
+
+1. Open `backend/playbooks/<name>.md`
+2. Change the prompt text in the appropriate section
+3. Increment the `version:` field by 1 in the front matter
+4. Run `uv run pytest tests/test_playbooks.py` to compute the new SHA256 hash
+5. Update the hash in `tests/test_playbooks.py` under `EXPECTED_PLAYBOOK_HASHES`
+6. If the response shape changes, update test fixtures in `tests/fixtures/` and the
+   corresponding Pydantic models in `snapsell/llm/client.py` if needed
+7. Run full test suite: `uv run pytest`
+
+Playbooks are loaded at startup from `backend/playbooks/`, or from a path specified
+in the `SNAPSELL_PLAYBOOKS_DIR` environment variable. The Docker image includes
+playbooks via `COPY playbooks ./playbooks` in the Dockerfile.
+
 ## How a price is computed
 
 1. Search eBay Browse (`EBAY_US`, USD, US-located) with the item's `search_query`
