@@ -57,9 +57,10 @@ the Mac's LAN address or a deployed backend.
 2. Download `GoogleService-Info.plist` into `ios/SnapSell/Resources/` (gitignored).
 3. Copy its `REVERSED_CLIENT_ID` into `Config/Local.xcconfig` as `GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps....` (this becomes the URL scheme Google Sign-In returns on).
 4. Enable Google and Apple providers in Firebase Auth. Sign in with Apple is
-   required by App Store guideline 4.8 when Google sign-in is offered; the
-   `SnapSell.entitlements` file already requests the capability, and Xcode
-   registers it on the App ID with automatic signing.
+   required by App Store guideline 4.8 when Google sign-in is offered. Add
+   `com.apple.developer.applesignin` to `SnapSell.entitlements` (see
+   `playbooks/onboard-tester.md`); Xcode registers it on the App ID with
+   automatic signing.
 5. Apple users may hide their email (`...@privaterelay.appleid.com`). Add those
    relay addresses to `SNAPSELL_ALLOWED_EMAILS` on the backend or they will get 403.
 

@@ -43,3 +43,6 @@ ios/**/xcuserdata/
 # Hosting
 deploy/.env
 deploy/firebase-service-account.json
+
+# Claude Code local worktrees
+.claude/worktrees/
